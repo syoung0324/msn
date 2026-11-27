@@ -86,7 +86,7 @@ body {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 0.84rem;
-  max-width: 120px;
+  max-width: 130px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -177,11 +177,14 @@ select {
   cursor: pointer;
 }
 
-/* 線上大廳與房間面板 */
+/* =========================================================
+   放大強化版：線上對戰大廳與條列資訊欄
+   ========================================================= */
 .online-panel {
-  background: #fefce8;
-  border-bottom: 2px solid #fde047;
-  padding: 10px 12px;
+  background: linear-gradient(180deg, #fef9c3 0%, #fefce8 100%);
+  border-bottom: 3px solid #f59e0b;
+  padding: 14px 16px;
+  box-shadow: inset 0 2px 8px rgba(245, 158, 11, 0.12);
 }
 
 .lobby-header {
@@ -189,86 +192,229 @@ select {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-weight: 800;
-  font-size: 0.88rem;
-  color: #854d0e;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px dashed #fcd34d;
 }
 
-.waiting-rooms-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 8px;
+.lobby-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.empty-lobby {
-  grid-column: 1 / -1;
-  background: #fff;
-  border: 2px dashed #facc15;
-  border-radius: 12px;
-  padding: 10px;
-  text-align: center;
-  color: #92400e;
-  font-size: 0.85rem;
+.lobby-main-title {
+  font-weight: 900;
+  font-size: 1.12rem;
+  color: #78350f;
+}
+
+.lobby-sub-desc {
+  font-size: 0.84rem;
   font-weight: 700;
+  color: #92400e;
 }
 
-.room-card {
-  background: #fff;
-  border: 2px solid #60a5fa;
+.lobby-create-btn {
+  padding: 10px 18px;
+  font-size: 0.96rem;
   border-radius: 12px;
-  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.lobby-sections-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.45fr;
+  gap: 12px;
+}
+
+.lobby-section-box {
+  background: #ffffff;
+  border: 2px solid #fde047;
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 3px 10px rgba(180, 83, 9, 0.06);
+}
+
+.lobby-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 900;
+  font-size: 0.95rem;
+  color: #1e3a8a;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.section-count-pill {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+
+/* 在線人員條列 */
+.online-players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.lobby-player-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 10px;
 }
 
-.room-host-info {
+.lobby-player-row.is-me {
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+
+.lobby-player-left {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.room-host-avatar {
-  font-size: 1.5rem;
-  background: #eff6ff;
-  width: 36px;
-  height: 36px;
+.lobby-player-avatar {
+  font-size: 1.3rem;
+  background: #fff;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.lobby-player-name {
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lobby-player-status {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-idle {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-hosting {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* 等待房間條列 */
+.waiting-rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.empty-lobby, .empty-lobby-mini {
+  background: #fffbeb;
+  border: 2px dashed #facc15;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  color: #92400e;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.room-card {
+  background: #f0f9ff;
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  padding: 9px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.room-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(56, 189, 248, 0.22);
+}
+
+.room-host-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.room-host-avatar {
+  font-size: 1.65rem;
+  background: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
 }
 
 .room-host-name {
-  font-weight: 800;
-  color: #1e293b;
-  font-size: 0.9rem;
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 0.95rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .room-meta {
-  font-size: 0.75rem;
-  color: #64748b;
-  font-weight: 700;
+  font-size: 0.8rem;
+  color: #1d4ed8;
+  font-weight: 800;
+  margin-top: 2px;
 }
 
 .btn-join-now {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   border: none;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 10px;
-  font-weight: 800;
-  font-size: 0.82rem;
+  font-weight: 900;
+  font-size: 0.88rem;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.28);
 }
 
 .room-active-bar {
@@ -276,24 +422,30 @@ select {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 4px 2px;
 }
 
 .room-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
-  font-size: 0.88rem;
+  font-size: 1rem;
+}
+
+.room-code-tag {
+  font-weight: 800;
+  color: #78350f;
 }
 
 .status-pill {
   background: #fff;
-  border: 1px solid #facc15;
-  padding: 3px 10px;
+  border: 2px solid #facc15;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 800;
   color: #854d0e;
 }
 
@@ -796,8 +948,8 @@ select {
 }
 
 .mini-btn {
-  padding: 5px 10px;
-  font-size: 0.82rem;
+  padding: 6px 12px;
+  font-size: 0.86rem;
 }
 
 .modal-overlay {
@@ -817,7 +969,7 @@ select {
   border-radius: 20px;
   border: 3px solid #38bdf8;
   width: 100%;
-  max-width: 400px;
+  max-width: 410px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
@@ -832,15 +984,42 @@ select {
   margin-bottom: 6px;
 }
 
-.msn-dialog-body input {
-  width: 100%;
-  padding: 10px 14px;
+/* 登入視窗：暱稱輸入框 + 隨機骰子按鈕 */
+.nickname-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.nickname-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
   border: 2px solid #93c5fd;
   border-radius: 12px;
   font-size: 16px;
   text-align: center;
-  font-weight: 700;
-  margin: 12px 0;
+  font-weight: 800;
+  margin: 0;
+}
+
+.btn-random-nick {
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.25);
+  transition: transform 0.12s;
+}
+
+.btn-random-nick:active {
+  transform: scale(0.94);
 }
 
 .avatar-picker {
@@ -937,6 +1116,31 @@ select {
     font-size: 14px;
   }
 
+  /* 手機版線上大廳放大排版 */
+  .online-panel {
+    padding: 12px 10px;
+  }
+
+  .lobby-main-title {
+    font-size: 1.05rem;
+  }
+
+  .lobby-create-btn {
+    width: 100%;
+    padding: 10px;
+    font-size: 0.95rem;
+  }
+
+  .lobby-sections-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .online-players-list,
+  .waiting-rooms-list {
+    max-height: 140px;
+  }
+
   .main-layout {
     grid-template-columns: 1fr;
     padding: 8px 10px;
@@ -983,7 +1187,6 @@ select {
     border-radius: 12px;
   }
 
-  /* 手機版中央「輪到您進攻囉！」對話框位置與尺寸微調 */
   .turn-toast {
     top: 42%;
     max-width: 92vw;

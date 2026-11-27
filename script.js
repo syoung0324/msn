@@ -88,11 +88,10 @@ class ArcadeSoundEngine {
     this.playTone(440, "sine", 0.08, 0, 0.15, 330);
   }
 
-  // 可愛清脆「輪到您進攻囉！」雙音鈴聲
   playMyTurnBell() {
-    this.playTone(783.99, "sine", 0.11, 0, 0.26); // G5
-    this.playTone(1046.5, "triangle", 0.22, 0.09, 0.28); // C6
-    this.playTone(1318.51, "sine", 0.18, 0.16, 0.16); // E6 泛音點綴
+    this.playTone(783.99, "sine", 0.11, 0, 0.26);
+    this.playTone(1046.5, "triangle", 0.22, 0.09, 0.28);
+    this.playTone(1318.51, "sine", 0.18, 0.16, 0.16);
   }
 
   playMatchPointAlert() {
@@ -117,7 +116,6 @@ class ArcadeSoundEngine {
     }
   }
 
-  // 經典 ICQ "Uh-oh!"（喔喔！）雙音節共振腔音效
   playIcqUhOh() {
     if (!this.enabled) return;
     this.init();
@@ -125,8 +123,8 @@ class ArcadeSoundEngine {
 
     const now = this.ctx.currentTime;
     const syllables = [
-      { start: 0.0, dur: 0.13, f0: 290, f1: 255, formant: 820 }, // "Uh-"
-      { start: 0.16, dur: 0.21, f0: 365, f1: 315, formant: 640 } // "-oh!"
+      { start: 0.0, dur: 0.13, f0: 290, f1: 255, formant: 820 },
+      { start: 0.16, dur: 0.21, f0: 365, f1: 315, formant: 640 }
     ];
 
     syllables.forEach((s) => {
@@ -171,14 +169,30 @@ class ArcadeSoundEngine {
 
 const sfx = new ArcadeSoundEngine();
 
-// iPhone / iOS Safari 首次觸控自動解鎖音效引擎
 ["touchstart", "pointerdown", "click"].forEach((evt) => {
   window.addEventListener(evt, () => sfx.init(), { once: true, passive: true });
 });
 
 // ==========================================
-// 3. 遊戲全域狀態與難度設定
+// 3. 可愛暱稱隨機產生器與遊戲全域狀態
 // ==========================================
+const CUTE_ADJECTIVES = [
+  "元氣", "閃電", "草莓", "奶蓋", "星光", "棉花糖",
+  "無敵", "快樂", "蜂蜜", "奶油", "彩虹", "超萌",
+  "幸運", "布丁", "泡泡", "太陽"
+];
+
+const CUTE_ANIMALS = [
+  "小蜜蜂", "小柴犬", "小狐狸", "小兔兔", "小熊貓", "小企鵝",
+  "小倉鼠", "小貓咪", "小海豹", "小刺蝟", "小水獺", "小柯基"
+];
+
+function generateCuteNickname() {
+  const adj = CUTE_ADJECTIVES[Math.floor(Math.random() * CUTE_ADJECTIVES.length)];
+  const ani = CUTE_ANIMALS[Math.floor(Math.random() * CUTE_ANIMALS.length)];
+  return `${adj}${ani}`;
+}
+
 const DIFFICULTIES = {
   easy: { label: "🌱 快樂入門 (8×8)", rows: 8, cols: 8, mines: 15 },
   medium: { label: "🌼 活力進階 (12×12)", rows: 12, cols: 12, mines: 29 },
@@ -188,10 +202,10 @@ const DIFFICULTIES = {
 const state = {
   user: {
     uid: "u_" + Math.random().toString(36).substring(2, 10),
-    name: "小蜜蜂王",
+    name: "元氣小蜜蜂",
     avatar: "🐶"
   },
-  mode: "ai",
+  mode: "online", // 預設為線上大廳
   difficulty: "medium",
   rows: 12,
   cols: 12,
@@ -204,6 +218,7 @@ const state = {
   gameOver: false,
   aiTimer: null,
   turnToastTimer: null,
+  heartbeatTimer: null,
 
   roomId: null,
   myRole: 1,
@@ -211,11 +226,12 @@ const state = {
   waitingRestartAck: false,
   pendingModeSwitch: null,
   unsubLobby: null,
+  unsubLobbyUsers: null,
   unsubRoom: null,
   unsubChat: null,
   lastNudgeTs: 0,
   lastRestartReqId: "",
-  hasAutoSwitchedToLobby: false,
+  latestWaitingRooms: [],
   p1Info: { name: "玩家 1", avatar: "🐶" },
   p2Info: { name: "等待加入...", avatar: "⏳" }
 };
@@ -252,7 +268,10 @@ const el = {
   hintCount: document.getElementById("hint-count"),
   onlinePanel: document.getElementById("online-panel"),
   roomLobbyControls: document.getElementById("room-lobby-controls"),
+  onlinePlayersList: document.getElementById("online-players-list"),
+  onlinePlayersCount: document.getElementById("online-players-count"),
   waitingRoomsList: document.getElementById("waiting-rooms-list"),
+  waitingRoomsCount: document.getElementById("waiting-rooms-count"),
   lobbyCountBadge: document.getElementById("lobby-count-badge"),
   roomActiveBar: document.getElementById("room-active-bar"),
   displayRoomCode: document.getElementById("display-room-code"),
@@ -273,8 +292,16 @@ const el = {
   restartReqDesc: document.getElementById("restart-req-desc")
 };
 
+// 初始化先填入一組隨機可愛暱稱
+el.nicknameInput.value = generateCuteNickname();
+
+document.getElementById("btn-random-nickname").addEventListener("click", () => {
+  el.nicknameInput.value = generateCuteNickname();
+  sfx.playSafeDig(2);
+});
+
 // ==========================================
-// 5. 螢幕中央「輪到您進攻囉！」可愛快閃對話框（出現後自動消失）
+// 5. 螢幕中央「輪到您進攻囉！」可愛快閃對話框
 // ==========================================
 function showYourTurnPopup(playerName, avatar, teamRole = 1) {
   if (!el.turnToast || state.gameOver) return;
@@ -287,7 +314,6 @@ function showYourTurnPopup(playerName, avatar, teamRole = 1) {
   el.turnToastCard.className = `turn-toast-card ${teamRole === 2 ? "team-p2" : "team-p1"}`;
   el.turnToast.classList.remove("hidden");
 
-  // 重新觸發彈跳淡出動畫
   el.turnToastCard.style.animation = "none";
   void el.turnToastCard.offsetWidth;
   el.turnToastCard.style.animation = "";
@@ -325,7 +351,7 @@ window.addEventListener("resize", updateResponsiveCellSize);
 window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
 
 // ==========================================
-// 7. 登入與大廳即時房間監聽
+// 7. 登入與線上大廳（在線人員 + 等待房間條列）
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -338,9 +364,29 @@ document.querySelectorAll(".avatar-btn").forEach((btn) => {
   });
 });
 
+async function updateLobbyPresence(statusText = "大廳待機中") {
+  if (!db) return;
+  try {
+    await db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).set({
+      uid: state.user.uid,
+      name: state.user.name,
+      avatar: state.user.avatar,
+      statusText,
+      lastSeen: Date.now()
+    });
+  } catch (e) {}
+}
+
+async function removeLobbyPresence() {
+  if (!db) return;
+  try {
+    await db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).delete();
+  } catch (e) {}
+}
+
 function enterLobbyHandler() {
   const nick = el.nicknameInput.value.trim();
-  state.user.name = nick || "快樂小玩家";
+  state.user.name = nick || generateCuteNickname();
   el.userBadge.textContent = `${state.user.avatar} ${state.user.name}`;
 
   el.loginModal.classList.add("hidden");
@@ -351,10 +397,22 @@ function enterLobbyHandler() {
     sfx.playIcqUhOh();
   } catch (e) {}
 
-  startNewLocalGame(true);
+  // 登入後預設進入「線上大廳」
+  switchGameMode("online", true);
 
   try {
-    listenToWaitingRooms(true);
+    updateLobbyPresence("大廳待機中");
+    clearInterval(state.heartbeatTimer);
+    state.heartbeatTimer = setInterval(() => {
+      if (state.mode === "online" && !state.roomId) {
+        updateLobbyPresence("大廳待機中");
+      } else if (state.mode === "online" && state.roomId && state.roomStatus === "waiting") {
+        updateLobbyPresence(`開房等待中 (#${state.roomId})`);
+      }
+    }, 20000);
+
+    listenToLobbyUsers();
+    listenToWaitingRooms();
   } catch (e) {
     console.warn("監聽線上大廳失敗：", e);
   }
@@ -368,7 +426,64 @@ el.nicknameInput.addEventListener("keydown", (e) => {
   }
 });
 
-function listenToWaitingRooms(autoSwitchIfAvailable = false) {
+function listenToLobbyUsers() {
+  if (!db) return;
+  if (state.unsubLobbyUsers) state.unsubLobbyUsers();
+
+  state.unsubLobbyUsers = db
+    .collection("msn_minesweeper_lobby_users")
+    .onSnapshot(
+      (snapshot) => {
+        const now = Date.now();
+        const activeUsers = [];
+        snapshot.forEach((doc) => {
+          const u = doc.data();
+          if (u && now - (u.lastSeen || 0) < 65000) {
+            activeUsers.push(u);
+          }
+        });
+
+        // 確保自己一定出現在在線清單第一位
+        const others = activeUsers.filter((u) => u.uid !== state.user.uid);
+        const selfEntry = {
+          uid: state.user.uid,
+          name: state.user.name,
+          avatar: state.user.avatar,
+          statusText: state.roomId ? `開房等待中 (#${state.roomId})` : "大廳待機中"
+        };
+        const orderedList = [selfEntry, ...others];
+
+        renderOnlinePlayersList(orderedList);
+      },
+      (err) => {
+        console.warn("在線人員監聽提示：", err);
+      }
+    );
+}
+
+function renderOnlinePlayersList(users) {
+  el.onlinePlayersCount.textContent = `${users.length} 人在線`;
+  el.onlinePlayersList.innerHTML = "";
+
+  users.forEach((u) => {
+    const isMe = u.uid === state.user.uid;
+    const isHosting = String(u.statusText || "").includes("開房");
+    const row = document.createElement("div");
+    row.className = `lobby-player-row ${isMe ? "is-me" : ""}`;
+    row.innerHTML = `
+      <div class="lobby-player-left">
+        <div class="lobby-player-avatar">${u.avatar || "🐶"}</div>
+        <div class="lobby-player-name">${escapeHtml(u.name || "神秘玩家")}${isMe ? " (我)" : ""}</div>
+      </div>
+      <span class="lobby-player-status ${isHosting ? "status-hosting" : "status-idle"}">
+        ${escapeHtml(u.statusText || "大廳待機中")}
+      </span>
+    `;
+    el.onlinePlayersList.appendChild(row);
+  });
+}
+
+function listenToWaitingRooms() {
   if (!db) return;
   if (state.unsubLobby) state.unsubLobby();
 
@@ -385,15 +500,12 @@ function listenToWaitingRooms(autoSwitchIfAvailable = false) {
           }
         });
 
+        state.latestWaitingRooms = rooms;
+        el.waitingRoomsCount.textContent = `${rooms.length} 間等待中`;
+
         if (rooms.length > 0) {
           el.lobbyCountBadge.textContent = rooms.length;
           el.lobbyCountBadge.classList.remove("hidden");
-
-          if (autoSwitchIfAvailable && !state.hasAutoSwitchedToLobby && !state.roomId) {
-            state.hasAutoSwitchedToLobby = true;
-            switchGameMode("online", true);
-            appendSystemMsg(`🎉 發現大廳有 ${rooms.length} 個房間正在等待對手，點擊即可立即開戰！`);
-          }
         } else {
           el.lobbyCountBadge.classList.add("hidden");
         }
@@ -412,7 +524,7 @@ function renderWaitingRoomsList(rooms) {
   el.waitingRoomsList.innerHTML = "";
   if (rooms.length === 0) {
     el.waitingRoomsList.innerHTML =
-      '<div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「➕ 建立房間」當房主吧！</div>';
+      '<div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「➕ 建立對戰房間」當房主吧！</div>';
     return;
   }
 
@@ -424,11 +536,11 @@ function renderWaitingRoomsList(rooms) {
       <div class="room-host-info">
         <div class="room-host-avatar">${room.p1?.avatar || "🐶"}</div>
         <div>
-          <div class="room-host-name">${escapeHtml(room.p1?.name || "神秘房主")} 的房間</div>
-          <div class="room-meta">${diffLabel} · 房號 #${room.roomId}</div>
+          <div class="room-host-name">房主：${escapeHtml(room.p1?.name || "神秘房主")}</div>
+          <div class="room-meta">${diffLabel} ｜ 房號 #${room.roomId}</div>
         </div>
       </div>
-      <button type="button" class="btn-join-now">⚔️ 加入對戰</button>
+      <button type="button" class="btn-join-now">⚔️ 立即加入</button>
     `;
     card.querySelector(".btn-join-now").addEventListener("click", () => {
       joinOnlineRoomById(room.roomId);
@@ -530,10 +642,14 @@ function startNewLocalGame(showStartToast = false) {
   state.gameOver = false;
 
   state.p1Info = { name: state.user.name, avatar: state.user.avatar };
-  state.p2Info =
-    state.mode === "ai"
-      ? { name: "聰明電腦", avatar: "🤖" }
-      : { name: "現場夥伴 2", avatar: "🐰" };
+  if (state.mode === "online") {
+    state.p2Info = { name: "等待加入...", avatar: "⏳" };
+  } else {
+    state.p2Info =
+      state.mode === "ai"
+        ? { name: "聰明電腦", avatar: "🤖" }
+        : { name: "現場夥伴 2", avatar: "🐰" };
+  }
 
   el.resultModal.classList.add("hidden");
   renderAll();
@@ -550,7 +666,7 @@ async function handleCellClick(idx) {
 
   if (state.mode === "online") {
     if (!state.roomId) {
-      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「建立房間」！");
+      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「➕ 建立對戰房間」！",);
       return;
     }
     if (state.p2Info.avatar === "⏳") {
@@ -605,14 +721,12 @@ function processLocalMove(idx) {
     if (!state.gameOver) {
       if (state.mode === "ai") {
         if (state.turn === 1) {
-          // 電腦沒猜中地雷，換回玩家時螢幕中央彈出可愛對話框提示加音效
           showYourTurnPopup(state.p1Info.name, state.p1Info.avatar, 1);
         } else {
           sfx.playTurnSwitch();
           scheduleAiTurn();
         }
       } else if (state.mode === "local") {
-        // 現場雙人模式交換回合提示
         const nextPlayer = state.turn === 1 ? state.p1Info : state.p2Info;
         showYourTurnPopup(nextPlayer.name, nextPlayer.avatar, state.turn);
       }
@@ -738,6 +852,7 @@ async function createOnlineRoom() {
     state.myRole = 1;
     state.roomStatus = "waiting";
     state.waitingRestartAck = false;
+    await updateLobbyPresence(`開房等待中 (#${roomId})`);
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
     await sendOnlineChatMessage(`我建立了房間 #${roomId}，正在大廳等待對手加入！🐝`, true);
@@ -776,6 +891,7 @@ async function joinOnlineRoomById(roomId) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    await removeLobbyPresence();
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
     await sendOnlineChatMessage(`${state.user.avatar} ${state.user.name} 進入房間，對戰開始！🔥`, true);
@@ -802,6 +918,7 @@ function returnToLobbyUI() {
   el.chatModeLabel.textContent = "線上對戰大廳";
   state.roomStatus = "waiting";
   state.waitingRestartAck = false;
+  updateLobbyPresence("大廳待機中");
   startNewLocalGame(false);
 }
 
@@ -839,6 +956,10 @@ function listenToRoom(roomId) {
     state.p1Info = data.p1 || { name: "房主", avatar: "🐶" };
     state.p2Info = data.p2 || { name: "等待對手加入...", avatar: "⏳" };
 
+    if (data.status === "playing" && prevStatus === "waiting") {
+      removeLobbyPresence();
+    }
+
     const diffSelect = document.getElementById("difficulty-select");
     if (diffSelect && diffSelect.value !== data.difficulty) {
       diffSelect.value = data.difficulty;
@@ -852,7 +973,6 @@ function listenToRoom(roomId) {
       triggerWindowShake();
     }
 
-    // 處理對手發送的「重新開局請求」
     const req = data.restartRequest;
     if (req && req.status === "pending") {
       if (req.fromUid !== state.user.uid) {
@@ -876,7 +996,6 @@ function listenToRoom(roomId) {
     checkWinCondition();
     renderAll();
 
-    // 判斷是否為「剛開局 / 重開局」或「對手沒猜中地雷換我方」
     const isFreshMatchStart =
       data.status === "playing" &&
       data.scores[1] === 0 &&
@@ -891,7 +1010,6 @@ function listenToRoom(roomId) {
         showYourTurnPopup(myInfo.name, myInfo.avatar, state.myRole);
       } else if (data.turn !== prevTurn) {
         if (data.turn === state.myRole) {
-          // 對手沒選到地雷，輪到我方時在螢幕中央彈出「輪到您進攻囉！」對話框加音效
           const myInfo = state.myRole === 1 ? state.p1Info : state.p2Info;
           showYourTurnPopup(myInfo.name, myInfo.avatar, state.myRole);
         } else {
@@ -921,7 +1039,6 @@ function listenToRoom(roomId) {
     });
 }
 
-// 線上對戰發送「重新開局請求」給對手（立即關閉結算視窗）
 async function requestOnlineRestart(targetDifficulty = state.difficulty) {
   if (!db || !state.roomId) return;
 
@@ -948,7 +1065,6 @@ async function requestOnlineRestart(targetDifficulty = state.difficulty) {
   await sendOnlineChatMessage(`🔄 ${state.user.name} 提出「重新開局」請求，等待對手同意中...`, true);
 }
 
-// 實際重置線上房間棋盤（對手同意後執行）
 async function executeOnlineRoomReset(targetDifficulty = state.difficulty) {
   if (!db || !state.roomId) return;
   const cfg = DIFFICULTIES[targetDifficulty] || DIFFICULTIES.medium;
@@ -1015,11 +1131,14 @@ async function cleanupCurrentRoom(notifyOpponent = true) {
 }
 
 window.addEventListener("beforeunload", () => {
-  if (db && state.roomId) {
-    db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
-      status: "closed",
-      leftBy: state.user.name
-    });
+  if (db) {
+    db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).delete();
+    if (state.roomId) {
+      db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+        status: "closed",
+        leftBy: state.user.name
+      });
+    }
   }
 });
 
@@ -1078,7 +1197,7 @@ function renderAll() {
   el.turnBanner.className = `turn-banner ${state.turn === 1 ? "p1-banner" : "p2-banner"}`;
   if (state.mode === "online") {
     if (!state.roomId) {
-      el.turnBanner.textContent = "🏠 請從上方大廳點選房間加入，或按「建立房間」";
+      el.turnBanner.textContent = "🏠 請從上方大廳點選房間加入，或按「➕ 建立對戰房間」";
     } else if (state.p2Info.avatar === "⏳") {
       el.turnBanner.textContent = "⏳ 房間已開啟！等待對手從大廳加入...";
     } else if (state.waitingRestartAck) {
@@ -1221,6 +1340,7 @@ function switchGameMode(newMode, skipConfirm = false) {
     returnToLobbyUI();
   } else {
     cleanupCurrentRoom(true);
+    removeLobbyPresence();
     el.onlinePanel.classList.add("hidden");
     el.chatModeLabel.textContent = newMode === "ai" ? "電腦陪玩聊天" : "雙人同樂模式";
     startNewLocalGame(true);
@@ -1273,7 +1393,6 @@ document.getElementById("btn-hint").addEventListener("click", () => {
   }
 });
 
-// 建立房間與「離開房間」二次確認
 document.getElementById("btn-create-room").addEventListener("click", createOnlineRoom);
 
 document.getElementById("btn-leave-room").addEventListener("click", async () => {
@@ -1310,7 +1429,6 @@ document.getElementById("btn-confirm-leave-notice").addEventListener("click", ()
   el.leaveNoticeModal.classList.add("hidden");
 });
 
-// 同意 / 婉拒對手的重新開局請求
 document.getElementById("btn-accept-restart").addEventListener("click", async () => {
   el.restartRequestModal.classList.add("hidden");
   el.resultModal.classList.add("hidden");
@@ -1329,7 +1447,6 @@ document.getElementById("btn-reject-restart").addEventListener("click", async ()
   await sendOnlineChatMessage(`❌ ${state.user.name} 婉拒了重新開局請求！`, true);
 });
 
-// 點擊「重新一局」、笑臉或結算彈窗的「請求再戰一局」
 const restartHandler = () => {
   el.resultModal.classList.add("hidden");
   if (state.mode === "online" && state.roomId) {
