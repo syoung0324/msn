@@ -174,7 +174,50 @@ const sfx = new ArcadeSoundEngine();
 });
 
 // ==========================================
-// 3. 可愛暱稱隨機產生器、連線識別與遊戲全域狀態
+// 3. 大頭照渲染輔助（支援 Emoji 與本機上傳照片 DataURL）
+// ==========================================
+function isImageAvatar(avatar) {
+  return typeof avatar === "string" && avatar.startsWith("data:image/");
+}
+
+function renderAvatarHtml(avatar, imgClass = "avatar-photo-img") {
+  const safeVal = avatar || "🐶";
+  if (isImageAvatar(safeVal)) {
+    return `<img src="${safeVal}" alt="avatar" class="${imgClass}" />`;
+  }
+  return escapeHtml(safeVal);
+}
+
+// 將本機照片置中裁切為正方形並壓縮為 120x120 JPEG，確保 Firestore 即時同步順暢
+function compressLocalPhotoToAvatar(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const size = 120;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+
+        const minSide = Math.min(img.width, img.height);
+        const sx = (img.width - minSide) / 2;
+        const sy = (img.height - minSide) / 2;
+
+        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ==========================================
+// 4. 可愛暱稱隨機產生器、連線識別與遊戲全域狀態
 // ==========================================
 const CUTE_ADJECTIVES = [
   "元氣", "閃電", "草莓", "奶蓋", "星光", "棉花糖",
@@ -193,7 +236,6 @@ function generateCuteNickname() {
   return `${adj}${ani}`;
 }
 
-// 取得或建立同分頁的連線識別碼（用於重整 / 重連時自動清除舊殘留紀錄）
 function getTabSessionId() {
   try {
     let sid = sessionStorage.getItem("msn_ms_session_id");
@@ -207,8 +249,8 @@ function getTabSessionId() {
   }
 }
 
-const HEARTBEAT_INTERVAL_MS = 8000; // 每 8 秒發送一次在線心跳
-const OFFLINE_TIMEOUT_MS = 22000;   // 超過 22 秒無回應判定為斷線並自動踢除
+const HEARTBEAT_INTERVAL_MS = 8000;
+const OFFLINE_TIMEOUT_MS = 22000;
 
 const DIFFICULTIES = {
   easy: { label: "🌱 快樂入門 (8×8)", rows: 8, cols: 8, mines: 15 },
@@ -259,12 +301,14 @@ const state = {
 };
 
 // ==========================================
-// 4. DOM 元素快取
+// 5. DOM 元素快取
 // ==========================================
 const el = {
   loginModal: document.getElementById("login-modal"),
   nicknameInput: document.getElementById("nickname-input"),
   avatarPreview: document.getElementById("avatar-preview"),
+  avatarUploadBtn: document.getElementById("btn-upload-avatar"),
+  avatarFileInput: document.getElementById("avatar-file-input"),
   appWindow: document.getElementById("app-window"),
   userBadge: document.getElementById("user-badge"),
   boardWrapper: document.getElementById("board-wrapper"),
@@ -323,13 +367,13 @@ document.getElementById("btn-random-nickname").addEventListener("click", () => {
 });
 
 // ==========================================
-// 5. 螢幕中央「輪到您進攻囉！」可愛快閃對話框
+// 6. 螢幕中央「輪到您進攻囉！」可愛快閃對話框
 // ==========================================
 function showYourTurnPopup(playerName, avatar, teamRole = 1) {
   if (!el.turnToast || state.gameOver) return;
   clearTimeout(state.turnToastTimer);
 
-  el.turnToastAvatar.textContent = avatar || "🐶";
+  el.turnToastAvatar.innerHTML = renderAvatarHtml(avatar || "🐶");
   el.turnToastTitle.textContent = "⚡ 輪到您進攻囉！";
   el.turnToastSub.textContent = `【${playerName}】快點草地抓小蜜蜂 🐝`;
 
@@ -348,7 +392,7 @@ function showYourTurnPopup(playerName, avatar, teamRole = 1) {
 }
 
 // ==========================================
-// 6. 自適應螢幕格子尺寸計算 (iPhone 16 滿版核心)
+// 7. 自適應螢幕格子尺寸計算
 // ==========================================
 function updateResponsiveCellSize() {
   if (!el.boardWrapper) return;
@@ -373,20 +417,54 @@ window.addEventListener("resize", updateResponsiveCellSize);
 window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
 
 // ==========================================
-// 7. 登入、心跳偵測、斷線/重連自動踢除機制
+// 8. 登入（Emoji + 上傳本機大頭照）、心跳偵測與自動踢除機制
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".avatar-btn").forEach((b) => b.classList.remove("active"));
+    if (el.avatarUploadBtn) el.avatarUploadBtn.classList.remove("active");
     btn.classList.add("active");
     state.user.avatar = btn.dataset.avatar;
     if (el.avatarPreview) {
-      el.avatarPreview.textContent = state.user.avatar;
+      el.avatarPreview.innerHTML = renderAvatarHtml(state.user.avatar);
     }
+    sfx.playSafeDig(1);
   });
 });
 
-// 清理同分頁重整或重新連線前的舊幽靈帳號與房間
+if (el.avatarUploadBtn && el.avatarFileInput) {
+  el.avatarUploadBtn.addEventListener("click", () => {
+    el.avatarFileInput.click();
+  });
+
+  el.avatarFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("請選擇圖片檔案（JPG / PNG / WEBP 等）！");
+      return;
+    }
+
+    try {
+      const compressedDataUrl = await compressLocalPhotoToAvatar(file);
+      state.user.avatar = compressedDataUrl;
+
+      document.querySelectorAll(".avatar-btn").forEach((b) => b.classList.remove("active"));
+      el.avatarUploadBtn.classList.add("active");
+
+      if (el.avatarPreview) {
+        el.avatarPreview.innerHTML = renderAvatarHtml(compressedDataUrl);
+      }
+      sfx.playSafeDig(3);
+    } catch (err) {
+      console.error("讀取大頭照失敗：", err);
+      alert("照片讀取失敗，請換一張照片試試看！");
+    } finally {
+      el.avatarFileInput.value = "";
+    }
+  });
+}
+
 async function cleanupPreviousReconnectedSession() {
   if (!db) return;
   try {
@@ -413,7 +491,6 @@ async function cleanupPreviousReconnectedSession() {
       sessionStorage.removeItem("msn_ms_prev_room");
     }
 
-    // 額外掃描同 sessionId 的舊紀錄並一併踢除
     const sameSessionSnap = await db
       .collection("msn_minesweeper_lobby_users")
       .where("sessionId", "==", state.user.sessionId)
@@ -429,7 +506,6 @@ async function cleanupPreviousReconnectedSession() {
   } catch (e) {}
 }
 
-// 踢除指定斷線房主的等待中房間
 async function kickStaleRoomsByHostUid(hostUid) {
   if (!db || !hostUid) return;
   try {
@@ -446,13 +522,11 @@ async function kickStaleRoomsByHostUid(hostUid) {
   } catch (e) {}
 }
 
-// 巡檢大廳在線人員與等待房間：自動踢除超時斷線或重連重複的紀錄
 async function sweepStaleLobbyEntities() {
   const now = Date.now();
   const validUsers = [];
   const activeUids = new Set([state.user.uid]);
 
-  // 1. 檢查所有大廳在線人員是否超時或重複 sessionId
   const seenSessions = new Map();
   if (state.hasEnteredLobby) {
     seenSessions.set(state.user.sessionId, { uid: state.user.uid, lastSeen: now });
@@ -469,7 +543,6 @@ async function sweepStaleLobbyEntities() {
       seenSessions.get(u.sessionId).uid !== u.uid;
 
     if (isExpired || isDuplicateSession) {
-      // 自動踢除斷線或重連的幽靈人員與其等待房間
       if (db) {
         db.collection("msn_minesweeper_lobby_users").doc(u.uid).delete().catch(() => {});
         kickStaleRoomsByHostUid(u.uid);
@@ -483,7 +556,6 @@ async function sweepStaleLobbyEntities() {
     }
   }
 
-  // 2. 檢查所有等待中的房間：若房主已斷線或超過超時時間未更新心跳，自動移除該房間
   const validRooms = [];
   for (const room of state.latestWaitingRoomsRaw) {
     if (!room || !room.roomId) continue;
@@ -503,7 +575,6 @@ async function sweepStaleLobbyEntities() {
     }
   }
 
-  // 3. 組合並即時更新大廳畫面
   const selfEntry = {
     uid: state.user.uid,
     name: state.user.name,
@@ -536,7 +607,6 @@ async function updateLobbyPresence(statusText = "大廳待機中") {
       lastSeen: now
     });
 
-    // 若目前正擔任房主等待對手，同步更新房間的 hostLastSeen 心跳時間
     if (state.roomId && state.myRole === 1 && state.roomStatus === "waiting") {
       await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
         hostLastSeen: now
@@ -595,7 +665,8 @@ async function enterLobbyHandler() {
   const nick = el.nicknameInput.value.trim();
   state.user.name = nick || generateCuteNickname();
   state.hasEnteredLobby = true;
-  el.userBadge.textContent = `${state.user.avatar} ${state.user.name}`;
+
+  el.userBadge.innerHTML = `${renderAvatarHtml(state.user.avatar, "user-badge-img")} ${escapeHtml(state.user.name)}`;
 
   el.loginModal.classList.add("hidden");
   el.appWindow.classList.remove("hidden");
@@ -605,10 +676,7 @@ async function enterLobbyHandler() {
     sfx.playIcqUhOh();
   } catch (e) {}
 
-  // 先清除同分頁重連前的舊殘留人員與房間
   await cleanupPreviousReconnectedSession();
-
-  // 登入後預設進入「線上大廳」並啟動公開聊天室
   switchGameMode("online", true);
 
   try {
@@ -643,7 +711,6 @@ el.nicknameInput.addEventListener("keydown", (e) => {
   }
 });
 
-// 分頁切回前景時立即發送心跳與掃描離線人員
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.hasEnteredLobby && state.mode === "online") {
     if (!state.roomId) {
@@ -687,7 +754,7 @@ function renderOnlinePlayersList(users) {
     row.className = `lobby-player-row ${isMe ? "is-me" : ""}`;
     row.innerHTML = `
       <div class="lobby-player-left">
-        <div class="lobby-player-avatar">${u.avatar || "🐶"}</div>
+        <div class="lobby-player-avatar">${renderAvatarHtml(u.avatar || "🐶")}</div>
         <div class="lobby-player-name">${escapeHtml(u.name || "神秘玩家")}${isMe ? " (我)" : ""}</div>
       </div>
       <span class="lobby-player-status ${isHosting ? "status-hosting" : "status-idle"}">
@@ -736,7 +803,7 @@ function renderWaitingRoomsList(rooms) {
     card.className = "room-card";
     card.innerHTML = `
       <div class="room-host-info">
-        <div class="room-host-avatar">${room.p1?.avatar || "🐶"}</div>
+        <div class="room-host-avatar">${renderAvatarHtml(room.p1?.avatar || "🐶")}</div>
         <div>
           <div class="room-host-name">房主：${escapeHtml(room.p1?.name || "神秘房主")}</div>
           <div class="room-meta">${diffLabel} ｜ 房號 #${room.roomId}</div>
@@ -752,7 +819,7 @@ function renderWaitingRoomsList(rooms) {
 }
 
 // ==========================================
-// 8. 棋盤生成與核心踩地雷邏輯
+// 9. 棋盤生成與核心踩地雷邏輯
 // ==========================================
 function generateBoardData(rows, cols, totalMines) {
   const total = rows * cols;
@@ -828,7 +895,7 @@ function floodReveal(board, startIdx, rows, cols) {
 }
 
 // ==========================================
-// 9. 單機 / 電腦 AI 開局與點擊處理
+// 10. 單機 / 電腦 AI 開局與點擊處理
 // ==========================================
 function startNewLocalGame(showStartToast = false) {
   clearTimeout(state.aiTimer);
@@ -986,7 +1053,8 @@ function checkWinCondition() {
 
     const p1Win = state.scores[1] >= target;
     const winnerName = p1Win ? state.p1Info.name : state.p2Info.name;
-    el.resultEmoji.textContent = p1Win ? state.p1Info.avatar : state.p2Info.avatar;
+    const winnerAvatar = p1Win ? state.p1Info.avatar : state.p2Info.avatar;
+    el.resultEmoji.innerHTML = renderAvatarHtml(winnerAvatar);
     el.resultTitle.textContent = `🎉 ${winnerName} 獲得勝利！`;
     el.resultDetail.textContent = `${state.p1Info.name} ${state.scores[1]} 顆 🐝  VS  ${state.p2Info.name} ${state.scores[2]} 顆 🐝`;
 
@@ -997,7 +1065,7 @@ function checkWinCondition() {
 }
 
 // ==========================================
-// 10. Firebase Firestore 線上開房、重開徵求同意與離線確認
+// 11. Firebase Firestore 線上開房、重開徵求同意與離線確認
 // ==========================================
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1112,7 +1180,7 @@ async function joinOnlineRoomById(roomId) {
     await removeLobbyPresence();
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
-    await sendOnlineChatMessage(`${state.user.avatar} ${state.user.name} 進入房間，對戰開始！🔥`, true);
+    await sendOnlineChatMessage(`${state.user.name} 進入房間，對戰開始！🔥`, true);
   } catch (err) {
     console.error(err);
     appendSystemMsg("❌ 加入房間發生錯誤，請稍後再試。");
@@ -1421,14 +1489,14 @@ async function submitOnlineMove(idx) {
 }
 
 // ==========================================
-// 11. 畫面渲染與特效輔助函式
+// 12. 畫面渲染與特效輔助函式
 // ==========================================
 function renderAll() {
-  el.p1Avatar.textContent = state.p1Info.avatar;
+  el.p1Avatar.innerHTML = renderAvatarHtml(state.p1Info.avatar);
   el.p1Name.textContent = state.p1Info.name + (state.mode === "online" && state.myRole === 1 ? " (我)" : "");
   el.p1Score.textContent = state.scores[1];
 
-  el.p2Avatar.textContent = state.p2Info.avatar;
+  el.p2Avatar.innerHTML = renderAvatarHtml(state.p2Info.avatar);
   el.p2Name.textContent = state.p2Info.name + (state.mode === "online" && state.myRole === 2 ? " (我)" : "");
   el.p2Score.textContent = state.scores[2];
 
@@ -1508,7 +1576,7 @@ function triggerWindowShake() {
 }
 
 // ==========================================
-// 12. 聊天室與按鈕事件綁定（支援大廳公開聊天 + 房間聊天）
+// 13. 聊天室與按鈕事件綁定
 // ==========================================
 function appendSystemMsg(text) {
   const div = document.createElement("div");
@@ -1521,7 +1589,7 @@ function appendSystemMsg(text) {
 function appendChatBubble(name, avatar, text, isMe) {
   const div = document.createElement("div");
   div.className = `chat-bubble ${isMe ? "me" : "other"}`;
-  div.innerHTML = `<div class="sender">${avatar} ${escapeHtml(name)}</div><div>${escapeHtml(text)}</div>`;
+  div.innerHTML = `<div class="sender">${renderAvatarHtml(avatar, "chat-sender-img")} ${escapeHtml(name)}</div><div>${escapeHtml(text)}</div>`;
   el.chatMessages.appendChild(div);
   el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
 }

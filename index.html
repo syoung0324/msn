@@ -2,292 +2,253 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>MSN 踩地雷線上對戰版 - Minesweeper Flags</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MSN 踩地雷搶分戰 🐝</title>
   <link rel="stylesheet" href="style.css" />
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
 <body>
-  <!-- 登入 / 輸入暱稱視窗 -->
-  <div id="login-modal" class="modal-overlay">
-    <div class="msn-dialog">
-      <div class="msn-titlebar">
-        <span class="msn-logo">🟢</span>
-        <span>MSN Messenger 登入大廳</span>
+  <!-- 登入設定視窗 -->
+  <div id="login-modal" class="modal-backdrop">
+    <div class="modal-card login-card">
+      <div class="login-avatar-preview-wrap">
+        <div id="avatar-preview" class="avatar-preview-circle">🐶</div>
       </div>
-      <div class="msn-dialog-body">
-        <div class="avatar-preview" id="avatar-preview">🐶</div>
-        <h2>歡迎來到 MSN 踩地雷搶分戰！</h2>
-        <p class="sub-text">選擇可愛頭像並輸入暱稱（或按骰子隨機產生），登入後立即進入線上大廳！</p>
+      <h2>歡迎來到 MSN 踩地雷搶分戰！</h2>
+      <p class="login-sub">選擇可愛頭像或上傳本機照片並輸入暱稱，<br />登入後立即進入線上大廳！</p>
 
-        <div class="nickname-input-row">
-          <input type="text" id="nickname-input" maxlength="12" placeholder="請輸入暱稱（例如：小蜜蜂王）" />
-          <button type="button" id="btn-random-nickname" class="btn-random-nick" title="隨機產生可愛暱稱">🎲 隨機</button>
-        </div>
-
-        <div class="avatar-picker" id="avatar-picker">
-          <button type="button" class="avatar-btn active" data-avatar="🐶">🐶</button>
-          <button type="button" class="avatar-btn" data-avatar="🐱">🐱</button>
-          <button type="button" class="avatar-btn" data-avatar="🐰">🐰</button>
-          <button type="button" class="avatar-btn" data-avatar="🐻">🐻</button>
-          <button type="button" class="avatar-btn" data-avatar="🦊">🦊</button>
-          <button type="button" class="avatar-btn" data-avatar="🐼">🐼</button>
-        </div>
-        <button type="button" id="btn-enter-lobby" class="btn-primary big-btn">🚀 進入線上大廳</button>
+      <div class="nickname-row">
+        <input type="text" id="nickname-input" maxlength="12" placeholder="輸入可愛暱稱..." />
+        <button type="button" id="btn-random-nickname" class="btn-dice">🎲 隨機</button>
       </div>
+
+      <!-- 預設可愛頭像 + 上傳本機照片按鈕 -->
+      <div class="avatar-grid">
+        <button type="button" class="avatar-btn active" data-avatar="🐶">🐶</button>
+        <button type="button" class="avatar-btn" data-avatar="🐱">🐱</button>
+        <button type="button" class="avatar-btn" data-avatar="🐰">🐰</button>
+        <button type="button" class="avatar-btn" data-avatar="🐻">🐻</button>
+        <button type="button" class="avatar-btn" data-avatar="🦊">🦊</button>
+        <button type="button" class="avatar-btn" data-avatar="🐼">🐼</button>
+        <button type="button" id="btn-upload-avatar" class="avatar-upload-btn" title="從電腦或手機相簿挑選大頭照">
+          📷 照片
+        </button>
+      </div>
+      <input type="file" id="avatar-file-input" accept="image/*" class="hidden" />
+
+      <button type="button" id="btn-enter-lobby" class="btn-primary-full">🚀 進入線上大廳</button>
     </div>
   </div>
 
-  <!-- 主視窗容器 -->
-  <div id="app-window" class="msn-window hidden">
-    <!-- MSN 經典標題列 -->
+  <!-- 主遊戲視窗 -->
+  <div id="app-window" class="app-window hidden">
+    <!-- MSN 頂部標題列 -->
     <header class="msn-titlebar">
       <div class="title-left">
-        <span class="msn-buddy-icon">🟢</span>
-        <span class="window-title">MSN 踩地雷對戰版</span>
+        <span class="msn-butterfly">🦋</span>
+        <span class="app-title">MSN 踩地雷搶分戰</span>
+        <span id="user-badge" class="user-badge">🐶 元氣小蜜蜂</span>
       </div>
-      <div class="title-right">
-        <span id="user-badge" class="user-badge">🐶 玩家</span>
+
+      <div class="title-controls">
+        <div class="mode-switch">
+          <button type="button" class="mode-btn active" data-mode="online">
+            🌐 線上大廳 <span id="lobby-count-badge" class="badge-dot hidden">0</span>
+          </button>
+          <button type="button" class="mode-btn" data-mode="ai">🤖 電腦對戰</button>
+          <button type="button" class="mode-btn" data-mode="local">👥 雙人同樂</button>
+        </div>
+
+        <select id="difficulty-select" class="diff-select">
+          <option value="easy">🌱 快樂入門 (8×8)</option>
+          <option value="medium" selected>🌼 活力進階 (12×12)</option>
+          <option value="hard">🏆 經典 MSN (16×16)</option>
+        </select>
+
         <button type="button" id="btn-sound" class="icon-btn" title="音效開關">🔊</button>
-        <button type="button" id="btn-rules" class="icon-btn" title="玩法說明">❓</button>
+        <button type="button" id="btn-rules" class="icon-btn" title="遊戲規則">❓</button>
       </div>
     </header>
 
-    <!-- 模式切換與控制列 -->
-    <div class="control-bar">
-      <div class="mode-group">
-        <button type="button" class="mode-btn active" data-mode="online">
-          🌐 線上大廳 <span id="lobby-count-badge" class="lobby-badge hidden">0</span>
-        </button>
-        <button type="button" class="mode-btn" data-mode="ai">🤖 電腦</button>
-        <button type="button" class="mode-btn" data-mode="local">👫 雙人</button>
-      </div>
-
-      <div class="difficulty-group" id="difficulty-group">
-        <select id="difficulty-select">
-          <option value="easy">🌱 入門 (8×8 / 15顆)</option>
-          <option value="medium" selected>🌼 進階 (12×12 / 29顆)</option>
-          <option value="hard">🏆 經典 (16×16 / 51顆)</option>
-        </select>
-        <button type="button" id="btn-nudge" class="btn-nudge" title="發送來電震動！">📳 震動</button>
-      </div>
-    </div>
-
-    <!-- 放大版線上對戰大廳與房間面板 -->
-    <div id="online-panel" class="online-panel">
-      <div id="room-lobby-controls" class="lobby-box">
-        <div class="lobby-header">
-          <div class="lobby-title-wrap">
-            <span class="lobby-main-title">🌐 MSN 線上對戰大廳</span>
-            <span class="lobby-sub-desc">點選下方房間立即加入對戰，或自己建立新房間當房主</span>
+    <!-- 線上大廳與房間管理區 -->
+    <section id="online-panel" class="online-panel">
+      <!-- 大廳待機視圖 -->
+      <div id="room-lobby-controls" class="lobby-grid">
+        <div class="lobby-box">
+          <div class="lobby-box-header">
+            <span>👥 大廳在線人員</span>
+            <span id="online-players-count" class="pill-count">1 人在線</span>
           </div>
-          <button type="button" id="btn-create-room" class="btn-primary lobby-create-btn">➕ 建立對戰房間</button>
+          <div id="online-players-list" class="lobby-scroll-list"></div>
         </div>
 
-        <div class="lobby-sections-grid">
-          <!-- 區塊 1：在線等待人員條列 -->
-          <div class="lobby-section-box">
-            <div class="lobby-section-title">
-              <span>👥 大廳在線人員</span>
-              <span id="online-players-count" class="section-count-pill">1 人在線</span>
-            </div>
-            <div id="online-players-list" class="online-players-list">
-              <div class="empty-lobby-mini">載入在線名單中...</div>
+        <div class="lobby-box">
+          <div class="lobby-box-header">
+            <span>🏠 等待加入的房間</span>
+            <div class="lobby-box-actions">
+              <span id="waiting-rooms-count" class="pill-count">0 間等待中</span>
+              <button type="button" id="btn-create-room" class="btn-create-room">➕ 建立對戰房間</button>
             </div>
           </div>
-
-          <!-- 區塊 2：等待對戰房間條列 -->
-          <div class="lobby-section-box">
-            <div class="lobby-section-title">
-              <span>🏠 等待加入的房間</span>
-              <span id="waiting-rooms-count" class="section-count-pill">0 間等待中</span>
-            </div>
-            <div id="waiting-rooms-list" class="waiting-rooms-list">
-              <div class="empty-lobby">🔍 目前沒有等待中的房間，按右上角「➕ 建立對戰房間」當房主吧！</div>
-            </div>
-          </div>
+          <div id="waiting-rooms-list" class="lobby-scroll-list"></div>
         </div>
       </div>
 
+      <!-- 房間對戰中狀態列 -->
       <div id="room-active-bar" class="room-active-bar hidden">
-        <div class="room-info">
-          <span class="room-code-tag">🏠 房號：<strong id="display-room-code">------</strong></span>
-          <span id="room-status-text" class="status-pill">⏳ 等待對手加入...</span>
+        <div class="room-info-left">
+          <span class="room-tag">房號 #<strong id="display-room-code">------</strong></span>
+          <span id="room-status-text" class="room-status-text">⏳ 等待對手加入...</span>
         </div>
-        <button type="button" id="btn-leave-room" class="btn-danger mini-btn">🚪 離開房間</button>
+        <button type="button" id="btn-leave-room" class="btn-leave-room">🚪 離開房間返回大廳</button>
       </div>
-    </div>
+    </section>
 
-    <!-- 主內容區：左側棋盤 + 右側 MSN 聊天視窗 -->
-    <div class="main-layout">
-      <!-- 左側：計分板與遊戲棋盤 -->
-      <section class="game-section">
+    <!-- 主要內容區：左側棋盤 + 右側 MSN 對話框 -->
+    <main class="main-layout">
+      <!-- 左側對戰舞台 -->
+      <section class="game-stage">
+        <!-- 雙人記分板 -->
         <div class="scoreboard">
-          <div id="card-p1" class="player-card p1 active-turn">
-            <div class="p-avatar" id="p1-avatar">🐶</div>
-            <div class="p-info">
-              <div class="p-name" id="p1-name">玩家 1</div>
-              <div class="p-sub">紅隊</div>
+          <div id="card-p1" class="player-card p1-card active-turn">
+            <div id="p1-avatar" class="player-avatar">🐶</div>
+            <div class="player-meta">
+              <div id="p1-name" class="player-name">玩家 1</div>
+              <div class="player-team">紅隊</div>
             </div>
-            <div class="p-score" id="p1-score">0</div>
+            <div id="p1-score" class="player-score">0</div>
           </div>
 
           <div class="center-status">
             <button type="button" id="btn-face" class="face-btn" title="重新開局">😊</button>
-            <div class="mines-left">剩 <span id="remaining-mines">29</span> 🐝</div>
-            <div class="win-target">搶 <span id="target-score">15</span> 勝</div>
+            <div class="mine-counter">剩 <strong id="remaining-mines">29</strong> 🐝</div>
+            <div class="target-counter">搶 <strong id="target-score">15</strong> 勝</div>
           </div>
 
-          <div id="card-p2" class="player-card p2">
-            <div class="p-avatar" id="p2-avatar">⏳</div>
-            <div class="p-info">
-              <div class="p-name" id="p2-name">等待加入...</div>
-              <div class="p-sub">藍隊</div>
+          <div id="card-p2" class="player-card p2-card">
+            <div id="p2-avatar" class="player-avatar">⏳</div>
+            <div class="player-meta">
+              <div id="p2-name" class="player-name">等待加入...</div>
+              <div class="player-team">藍隊</div>
             </div>
-            <div class="p-score" id="p2-score">0</div>
+            <div id="p2-score" class="player-score">0</div>
           </div>
         </div>
 
-        <!-- 回合提示橫幅 -->
-        <div id="turn-banner" class="turn-banner p1-banner">🏠 請從上方大廳點選房間加入，或按「建立對戰房間」</div>
+        <!-- 回合提示橫幅與工具列 -->
+        <div class="action-toolbar">
+          <div id="turn-banner" class="turn-banner p1-banner">🏠 請從上方大廳點選房間加入，或按「➕ 建立對戰房間」</div>
+          <div class="tool-buttons">
+            <button type="button" id="btn-hint" class="tool-btn">🔍 透視 (<span id="hint-count">2</span>)</button>
+            <button type="button" id="btn-nudge" class="tool-btn">📳 震動</button>
+            <button type="button" id="btn-restart" class="tool-btn">🔄 重開</button>
+          </div>
+        </div>
 
-        <!-- 棋盤容器 -->
-        <div class="board-wrapper" id="board-wrapper">
+        <!-- 草地棋盤區 -->
+        <div id="board-wrapper" class="board-wrapper">
           <div id="board" class="board"></div>
           <div id="fx-layer" class="fx-layer"></div>
         </div>
-
-        <!-- 底部道具列 -->
-        <div class="bottom-tools">
-          <button type="button" id="btn-hint" class="btn-hint">🪄 放大鏡 (<span id="hint-count">2</span>)</button>
-          <button type="button" id="btn-restart" class="btn-secondary">🔄 重新一局</button>
-        </div>
       </section>
 
-      <!-- 右側：經典 MSN 即時聊天框 -->
-      <aside class="chat-section">
+      <!-- 右側 MSN 即時對話框 -->
+      <aside class="chat-panel">
         <div class="chat-header">
           <span>💬 MSN 即時對話框</span>
-          <span class="chat-tip" id="chat-mode-label">線上對戰大廳</span>
+          <span id="chat-mode-label" class="chat-channel-badge">線上對戰大廳</span>
         </div>
-        <div id="chat-messages" class="chat-messages">
-          <div class="sys-msg">歡迎進入 MSN 踩地雷線上大廳！搶先找到過半數小蜜蜂的人獲勝！</div>
+
+        <div id="chat-messages" class="chat-messages"></div>
+
+        <div class="sticker-bar">
+          <button type="button" class="sticker-btn" data-text="這格一定有蜜蜂！🐝">🐝 必中</button>
+          <button type="button" class="sticker-btn" data-text="哈哈被我搶走啦！😝">😝 搶走</button>
+          <button type="button" class="sticker-btn" data-text="快點快點～別睡著囉！⏰">⏰ 催促</button>
+          <button type="button" class="sticker-btn" data-text="太神啦！連擊好強 👏">👏 讚嘆</button>
         </div>
-        <!-- 快捷貼圖列 -->
-        <div class="quick-stickers">
-          <button type="button" class="sticker-btn" data-text="加油加油！🔥">🔥</button>
-          <button type="button" class="sticker-btn" data-text="太神啦！連擊好強！👏">👏</button>
-          <button type="button" class="sticker-btn" data-text="這格一定有蜜蜂！🐝">🐝</button>
-          <button type="button" class="sticker-btn" data-text="哈哈被我搶走啦！😝">😝</button>
-          <button type="button" class="sticker-btn" data-text="快點快點～別睡著囉！⏰">⏰</button>
-        </div>
-        <form id="chat-form" class="chat-input-box">
-          <input type="text" id="chat-input" maxlength="80" placeholder="輸入訊息與對手聊天..." autocomplete="off" />
+
+        <form id="chat-form" class="chat-form">
+          <input type="text" id="chat-input" maxlength="80" placeholder="輸入訊息與大家聊天..." autocomplete="off" />
           <button type="submit" class="btn-send">傳送</button>
         </form>
       </aside>
-    </div>
+    </main>
   </div>
 
-  <!-- 螢幕中央「輪到您進攻囉！」可愛快閃對話框（出現後自動消失，不擋點擊） -->
-  <div id="turn-toast" class="turn-toast hidden" aria-live="polite">
-    <div class="turn-toast-card" id="turn-toast-card">
-      <div class="turn-toast-avatar" id="turn-toast-avatar">🐶</div>
-      <div class="turn-toast-text">
-        <div class="turn-toast-title" id="turn-toast-title">⚡ 輪到您進攻囉！</div>
-        <div class="turn-toast-sub" id="turn-toast-sub">快點草地抓小蜜蜂 🐝</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 1. 線上對戰：請求對手同意「重新開局」彈窗 -->
-  <div id="restart-request-modal" class="modal-overlay hidden">
-    <div class="msn-dialog">
-      <div class="msn-titlebar">
-        <span>🔄 重新開局請求</span>
-      </div>
-      <div class="msn-dialog-body">
-        <div class="result-emoji">🤝</div>
-        <h2 id="restart-req-title">對手希望重新開啟一局</h2>
-        <p id="restart-req-desc" class="sub-text">是否同意結束目前盤面並重新開始一局？</p>
-        <div class="modal-btn-row">
-          <button type="button" id="btn-reject-restart" class="btn-secondary big-btn">❌ 婉拒</button>
-          <button type="button" id="btn-accept-restart" class="btn-primary big-btn">✅ 同意重開</button>
-        </div>
+  <!-- 輪到你進攻快閃彈窗 -->
+  <div id="turn-toast" class="turn-toast hidden">
+    <div id="turn-toast-card" class="turn-toast-card team-p1">
+      <div id="turn-toast-avatar" class="turn-toast-avatar">🐶</div>
+      <div>
+        <div id="turn-toast-title" class="turn-toast-title">⚡ 輪到您進攻囉！</div>
+        <div id="turn-toast-sub" class="turn-toast-sub">快點草地抓小蜜蜂 🐝</div>
       </div>
     </div>
   </div>
 
-  <!-- 2. 對戰中「確認離開房間」二次確認彈窗 -->
-  <div id="confirm-leave-modal" class="modal-overlay hidden">
-    <div class="msn-dialog">
-      <div class="msn-titlebar">
-        <span>⚠️ 確認離開房間</span>
-      </div>
-      <div class="msn-dialog-body">
-        <div class="result-emoji">🚪</div>
-        <h2>確定要離開目前的對戰房間嗎？</h2>
-        <p class="sub-text">離開後本場對戰將會直接結束，並通知對手已離線。</p>
-        <div class="modal-btn-row">
-          <button type="button" id="btn-cancel-leave" class="btn-secondary big-btn">繼續對戰</button>
-          <button type="button" id="btn-confirm-leave" class="btn-danger big-btn">確定離開</button>
-        </div>
+  <!-- 勝利結算彈窗 -->
+  <div id="result-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div id="result-emoji" class="result-emoji">🏆</div>
+      <h2 id="result-title">🎉 獲得勝利！</h2>
+      <p id="result-detail">紅隊 15 顆 🐝 VS 藍隊 10 顆 🐝</p>
+      <button type="button" id="btn-play-again" class="btn-primary-full">🔄 重新一局</button>
+    </div>
+  </div>
+
+  <!-- 對手離開房間通知彈窗 -->
+  <div id="leave-notice-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="result-emoji">👋</div>
+      <h2 id="leave-notice-title">對手已經離開房間</h2>
+      <p id="leave-notice-desc">對戰已結束，系統已為您返回線上大廳。</p>
+      <button type="button" id="btn-confirm-leave-notice" class="btn-primary-full">確定返回大廳</button>
+    </div>
+  </div>
+
+  <!-- 離開對戰確認彈窗 -->
+  <div id="confirm-leave-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="result-emoji">⚠️</div>
+      <h2>確定要離開目前對戰嗎？</h2>
+      <p>對戰仍在進行中，離開將會直接結束本局並返回大廳。</p>
+      <div class="modal-btn-row">
+        <button type="button" id="btn-cancel-leave" class="btn-secondary">繼續對戰</button>
+        <button type="button" id="btn-confirm-leave" class="btn-danger">確定離開</button>
       </div>
     </div>
   </div>
 
-  <!-- 3. 對手已離開房間通知彈窗 -->
-  <div id="leave-notice-modal" class="modal-overlay hidden">
-    <div class="msn-dialog">
-      <div class="msn-titlebar">
-        <span>📢 房間連線通知</span>
-      </div>
-      <div class="msn-dialog-body">
-        <div class="result-emoji">👋</div>
-        <h2 id="leave-notice-title">對手已經離開房間</h2>
-        <p id="leave-notice-desc" class="sub-text">系統已為您自動返回線上大廳，您可以重新建立或加入其他房間！</p>
-        <button type="button" id="btn-confirm-leave-notice" class="btn-primary big-btn">返回線上大廳</button>
+  <!-- 對方請求重新開局確認彈窗 -->
+  <div id="restart-request-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="result-emoji">🔄</div>
+      <h2 id="restart-req-title">對手希望重新開局</h2>
+      <p id="restart-req-desc">是否同意結束目前盤面並重新開始？</p>
+      <div class="modal-btn-row">
+        <button type="button" id="btn-reject-restart" class="btn-secondary">婉拒</button>
+        <button type="button" id="btn-accept-restart" class="btn-primary">同意重開</button>
       </div>
     </div>
   </div>
 
-  <!-- 4. 勝負結算彈窗 -->
-  <div id="result-modal" class="modal-overlay hidden">
-    <div class="msn-dialog result-dialog">
-      <div class="msn-titlebar">
-        <span>🏆 對戰結果出爐！</span>
-      </div>
-      <div class="msn-dialog-body">
-        <div id="result-emoji" class="result-emoji">🥳</div>
-        <h2 id="result-title">恭喜獲勝！</h2>
-        <p id="result-detail" class="result-detail">紅隊 15 顆 VS 藍隊 11 顆</p>
-        <button type="button" id="btn-play-again" class="btn-primary big-btn">⚡ 請求再戰一局</button>
-      </div>
+  <!-- 遊戲規則彈窗 -->
+  <div id="rules-modal" class="modal-backdrop hidden">
+    <div class="modal-card rules-card">
+      <h2>🐝 MSN 踩地雷搶分戰規則</h2>
+      <ul class="rules-list">
+        <li><strong>目標：</strong>草地下躲著許多小蜜蜂（地雷），率先找到<strong>過半數</strong>小蜜蜂的玩家獲勝！</li>
+        <li><strong>連擊獎勵：</strong>翻到小蜜蜂得 1 分，且<strong>繼續由你進攻</strong>（連續翻中還有連擊特效）。</li>
+        <li><strong>翻到空地：</strong>若翻開數字或空白草地，則換對方回合。數字代表周圍 8 格有幾隻小蜜蜂。</li>
+        <li><strong>MSN 互動：</strong>可使用右下角貼圖或「📳 震動」提醒對手快點出招！</li>
+      </ul>
+      <button type="button" id="btn-close-rules" class="btn-primary-full">我知道了！</button>
     </div>
   </div>
 
-  <!-- 5. 規則說明彈窗 -->
-  <div id="rules-modal" class="modal-overlay hidden">
-    <div class="msn-dialog">
-      <div class="msn-titlebar">
-        <span>📖 MSN 踩地雷對戰規則</span>
-      </div>
-      <div class="msn-dialog-body rules-body">
-        <ul>
-          <li>🎯 <strong>搶分獲勝：</strong>主動把藏在草地裡的小蜜蜂找出來！先搶到過半數小蜜蜂的玩家獲勝。</li>
-          <li>⚡ <strong>連擊獎勵：</strong>點中小蜜蜂得 1 分，而且<strong>可以繼續連續點擊下一格</strong>，直到沒猜中才換對手！</li>
-          <li>🔢 <strong>數字線索：</strong>點到安全草地會顯示周圍 8 格有幾隻小蜜蜂，根據數字推理位置並換對手進攻。</li>
-          <li>🤝 <strong>線上禮儀：</strong>線上對戰想重開新局需先徵求對手同意；對戰中離開房間也會有二次確認。</li>
-        </ul>
-        <button type="button" id="btn-close-rules" class="btn-primary big-btn">我知道了！</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
