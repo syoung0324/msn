@@ -23,7 +23,7 @@ try {
 }
 
 // ==========================================
-// 2. 刺激動態音效引擎 (Web Audio API)
+// 2. 刺激動態音效引擎 + 經典 ICQ "Uh-oh!" 訊息音效
 // ==========================================
 class ArcadeSoundEngine {
   constructor() {
@@ -110,9 +110,50 @@ class ArcadeSoundEngine {
     }
   }
 
-  playChatPop() {
-    this.playTone(660, "sine", 0.08, 0, 0.18);
-    this.playTone(990, "sine", 0.14, 0.07, 0.18);
+  // 經典 ICQ "Uh-oh!"（喔喔！）雙音節共振腔音效
+  playIcqUhOh() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const syllables = [
+      { start: 0.0, dur: 0.13, f0: 290, f1: 255, formant: 820 }, // "Uh-"
+      { start: 0.16, dur: 0.21, f0: 365, f1: 315, formant: 640 } // "-oh!"
+    ];
+
+    syllables.forEach((s) => {
+      const osc = this.ctx.createOscillator();
+      const sub = this.ctx.createOscillator();
+      const filter = this.ctx.createBiquadFilter();
+      const gain = this.ctx.createGain();
+
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(s.f0, now + s.start);
+      osc.frequency.exponentialRampToValueAtTime(s.f1, now + s.start + s.dur);
+
+      sub.type = "triangle";
+      sub.frequency.setValueAtTime(s.f0 * 2, now + s.start);
+      sub.frequency.exponentialRampToValueAtTime(s.f1 * 2, now + s.start + s.dur);
+
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(s.formant, now + s.start);
+      filter.Q.setValueAtTime(4.5, now + s.start);
+
+      gain.gain.setValueAtTime(0.001, now + s.start);
+      gain.gain.linearRampToValueAtTime(0.36, now + s.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + s.start + s.dur);
+
+      osc.connect(filter);
+      sub.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now + s.start);
+      sub.start(now + s.start);
+      osc.stop(now + s.start + s.dur);
+      sub.stop(now + s.start + s.dur);
+    });
   }
 
   playLeaveAlert() {
@@ -153,10 +194,13 @@ const state = {
 
   roomId: null,
   myRole: 1,
+  roomStatus: "waiting",
+  pendingModeSwitch: null,
   unsubLobby: null,
   unsubRoom: null,
   unsubChat: null,
   lastNudgeTs: 0,
+  lastRestartReqId: "",
   hasAutoSwitchedToLobby: false,
   p1Info: { name: "玩家 1", avatar: "🐶" },
   p2Info: { name: "等待加入...", avatar: "⏳" }
@@ -203,7 +247,11 @@ const el = {
   resultDetail: document.getElementById("result-detail"),
   leaveNoticeModal: document.getElementById("leave-notice-modal"),
   leaveNoticeTitle: document.getElementById("leave-notice-title"),
-  leaveNoticeDesc: document.getElementById("leave-notice-desc")
+  leaveNoticeDesc: document.getElementById("leave-notice-desc"),
+  confirmLeaveModal: document.getElementById("confirm-leave-modal"),
+  restartRequestModal: document.getElementById("restart-request-modal"),
+  restartReqTitle: document.getElementById("restart-req-title"),
+  restartReqDesc: document.getElementById("restart-req-desc")
 };
 
 // ==========================================
@@ -255,7 +303,7 @@ function enterLobbyHandler() {
 
   try {
     sfx.init();
-    sfx.playChatPop();
+    sfx.playIcqUhOh();
   } catch (e) {}
 
   startNewLocalGame();
@@ -298,7 +346,7 @@ function listenToWaitingRooms(autoSwitchIfAvailable = false) {
 
           if (autoSwitchIfAvailable && !state.hasAutoSwitchedToLobby && !state.roomId) {
             state.hasAutoSwitchedToLobby = true;
-            switchGameMode("online");
+            switchGameMode("online", true);
             appendSystemMsg(`🎉 發現大廳有 ${rooms.length} 個房間正在等待對手，點擊即可立即開戰！`);
           }
         } else {
@@ -488,6 +536,7 @@ function processLocalMove(idx) {
 
     if (state.mode === "ai" && state.turn === 1 && state.combo === 2) {
       appendChatBubble("聰明電腦", "🤖", "哇！你連續猜中兩隻小蜜蜂了，好厲害！", false);
+      sfx.playIcqUhOh();
     }
 
     checkWinCondition();
@@ -569,7 +618,7 @@ function checkWinCondition() {
 }
 
 // ==========================================
-// 9. Firebase Firestore 線上開房、一鍵加入與離開偵測
+// 9. Firebase Firestore 線上開房、重開徵求同意與離線確認
 // ==========================================
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -578,6 +627,15 @@ function generateRoomCode() {
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
+}
+
+function isActivelyPlayingOnline() {
+  return (
+    state.mode === "online" &&
+    Boolean(state.roomId) &&
+    state.roomStatus === "playing" &&
+    state.p2Info.avatar !== "⏳"
+  );
 }
 
 async function createOnlineRoom() {
@@ -604,6 +662,7 @@ async function createOnlineRoom() {
     leftBy: "",
     p1: { uid: state.user.uid, name: state.user.name, avatar: state.user.avatar },
     p2: null,
+    restartRequest: null,
     nudgeAt: 0,
     nudgeFrom: "",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -613,6 +672,7 @@ async function createOnlineRoom() {
     await db.collection("msn_minesweeper_rooms").doc(roomId).set(roomData);
     state.roomId = roomId;
     state.myRole = 1;
+    state.roomStatus = "waiting";
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
     await sendOnlineChatMessage(`我建立了房間 #${roomId}，正在大廳等待對手加入！🐝`, true);
@@ -641,10 +701,12 @@ async function joinOnlineRoomById(roomId) {
     await cleanupCurrentRoom(false);
     state.roomId = roomId;
     state.myRole = 2;
+    state.roomStatus = "playing";
 
     await docRef.update({
       p2: { uid: state.user.uid, name: state.user.name, avatar: state.user.avatar },
       status: "playing",
+      restartRequest: null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
@@ -669,7 +731,10 @@ function returnToLobbyUI() {
   el.roomLobbyControls.classList.remove("hidden");
   el.roomActiveBar.classList.add("hidden");
   el.resultModal.classList.add("hidden");
+  el.restartRequestModal.classList.add("hidden");
+  el.confirmLeaveModal.classList.add("hidden");
   el.chatModeLabel.textContent = "線上對戰大廳";
+  state.roomStatus = "waiting";
   startNewLocalGame();
 }
 
@@ -693,6 +758,7 @@ function listenToRoom(roomId) {
     const prevScores = { ...state.scores };
     const prevTurn = state.turn;
 
+    state.roomStatus = data.status;
     state.difficulty = data.difficulty;
     state.rows = data.rows;
     state.cols = data.cols;
@@ -703,6 +769,12 @@ function listenToRoom(roomId) {
     state.combo = data.combo || 0;
     state.p1Info = data.p1 || { name: "房主", avatar: "🐶" };
     state.p2Info = data.p2 || { name: "等待對手加入...", avatar: "⏳" };
+
+    // 同步難度下拉選單顯示
+    const diffSelect = document.getElementById("difficulty-select");
+    if (diffSelect && diffSelect.value !== data.difficulty) {
+      diffSelect.value = data.difficulty;
+    }
 
     el.roomStatusText.textContent =
       data.status === "waiting" ? "⏳ 等待對手加入..." : "🔥 對戰進行中！";
@@ -716,6 +788,21 @@ function listenToRoom(roomId) {
     if (data.nudgeAt && data.nudgeAt > state.lastNudgeTs) {
       state.lastNudgeTs = data.nudgeAt;
       triggerWindowShake();
+    }
+
+    // 處理對手發送的「重新開局請求」
+    const req = data.restartRequest;
+    if (req && req.status === "pending" && req.fromUid !== state.user.uid) {
+      if (state.lastRestartReqId !== req.id) {
+        state.lastRestartReqId = req.id;
+        const diffName = DIFFICULTIES[req.difficulty]?.label || "目前難度";
+        el.restartReqTitle.textContent = `🔄 ${req.fromName} 希望重新開局`;
+        el.restartReqDesc.textContent = `難度：【${diffName}】，是否同意結束目前盤面並重新開始一局？`;
+        el.restartRequestModal.classList.remove("hidden");
+        sfx.playIcqUhOh();
+      }
+    } else {
+      el.restartRequestModal.classList.add("hidden");
     }
 
     state.gameOver = false;
@@ -737,11 +824,56 @@ function listenToRoom(roomId) {
           } else {
             const isMe = msg.uid === state.user.uid;
             appendChatBubble(msg.name, msg.avatar, msg.text, isMe);
-            if (!isMe) sfx.playChatPop();
+            if (!isMe) sfx.playIcqUhOh();
           }
         }
       });
     });
+}
+
+// 線上對戰發送「重新開局請求」給對手
+async function requestOnlineRestart(targetDifficulty = state.difficulty) {
+  if (!db || !state.roomId) return;
+
+  // 若房間還在等待對手加入，房主可直接重洗棋盤
+  if (state.p2Info.avatar === "⏳") {
+    await executeOnlineRoomReset(targetDifficulty);
+    return;
+  }
+
+  const reqId = "req_" + Date.now();
+  await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+    restartRequest: {
+      id: reqId,
+      fromUid: state.user.uid,
+      fromName: state.user.name,
+      difficulty: targetDifficulty,
+      status: "pending"
+    }
+  });
+  await sendOnlineChatMessage(`🔄 ${state.user.name} 提出「重新開局」請求，等待對手同意中...`, true);
+}
+
+// 實際重置線上房間棋盤（對手同意後執行）
+async function executeOnlineRoomReset(targetDifficulty = state.difficulty) {
+  if (!db || !state.roomId) return;
+  const cfg = DIFFICULTIES[targetDifficulty] || DIFFICULTIES.medium;
+  const freshBoard = generateBoardData(cfg.rows, cfg.cols, cfg.mines);
+
+  await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+    difficulty: targetDifficulty,
+    rows: cfg.rows,
+    cols: cfg.cols,
+    totalMines: cfg.mines,
+    boardJson: JSON.stringify(freshBoard),
+    turn: 1,
+    scores: { 1: 0, 2: 0 },
+    combo: 0,
+    restartRequest: null,
+    status: state.p2Info.avatar !== "⏳" ? "playing" : "waiting",
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  await sendOnlineChatMessage("✅ 雙方同意重新開局，全新一局開始！", true);
 }
 
 function handleOpponentLeftRoom(leaverName) {
@@ -769,6 +901,7 @@ async function cleanupCurrentRoom(notifyOpponent = true) {
   state.unsubRoom = null;
   state.unsubChat = null;
   state.roomId = null;
+  state.roomStatus = "waiting";
 
   if (db && currentRoomId && notifyOpponent) {
     try {
@@ -819,25 +952,6 @@ async function submitOnlineMove(idx) {
     combo: nextCombo,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-}
-
-async function resetOnlineRoomGame() {
-  if (!db || !state.roomId) return;
-  const cfg = DIFFICULTIES[state.difficulty];
-  const freshBoard = generateBoardData(cfg.rows, cfg.cols, cfg.mines);
-
-  await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
-    rows: cfg.rows,
-    cols: cfg.cols,
-    totalMines: cfg.mines,
-    boardJson: JSON.stringify(freshBoard),
-    turn: 1,
-    scores: { 1: 0, 2: 0 },
-    combo: 0,
-    status: state.p2Info.avatar !== "⏳" ? "playing" : "waiting",
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  await sendOnlineChatMessage("🔄 開啟了全新一局對戰！", true);
 }
 
 // ==========================================
@@ -963,12 +1077,12 @@ async function sendOnlineChatMessage(text, isSystem = false) {
       });
   } else {
     appendChatBubble(state.user.name, state.user.avatar, text, true);
-    sfx.playChatPop();
+    sfx.playIcqUhOh();
     if (state.mode === "ai") {
       setTimeout(() => {
         const replies = ["收到！放馬過來吧 🤖", "這局我一定會找到更多蜜蜂！🐝", "哈哈，小心別被我連擊囉！⚡"];
         appendChatBubble("聰明電腦", "🤖", replies[Math.floor(Math.random() * replies.length)], false);
-        sfx.playChatPop();
+        sfx.playIcqUhOh();
       }, 650);
     }
   }
@@ -986,7 +1100,13 @@ document.querySelectorAll(".sticker-btn").forEach((btn) => {
   btn.addEventListener("click", () => sendOnlineChatMessage(btn.dataset.text, false));
 });
 
-function switchGameMode(newMode) {
+function switchGameMode(newMode, skipConfirm = false) {
+  if (!skipConfirm && newMode !== state.mode && isActivelyPlayingOnline()) {
+    state.pendingModeSwitch = newMode;
+    el.confirmLeaveModal.classList.remove("hidden");
+    return;
+  }
+
   document.querySelectorAll(".mode-btn").forEach((b) => {
     b.classList.toggle("active", b.dataset.mode === newMode);
   });
@@ -1008,10 +1128,11 @@ document.querySelectorAll(".mode-btn").forEach((btn) => {
 });
 
 document.getElementById("difficulty-select").addEventListener("change", (e) => {
-  state.difficulty = e.target.value;
+  const newDiff = e.target.value;
   if (state.mode === "online" && state.roomId) {
-    resetOnlineRoomGame();
+    requestOnlineRestart(newDiff);
   } else {
+    state.difficulty = newDiff;
     startNewLocalGame();
   }
 });
@@ -1043,25 +1164,70 @@ document.getElementById("btn-hint").addEventListener("click", () => {
   const cellEl = el.board.children[pick];
   if (cellEl) {
     cellEl.classList.add("hint-glow");
-    sfx.playChatPop();
+    sfx.playIcqUhOh();
     setTimeout(() => cellEl.classList.remove("hint-glow"), 2400);
   }
 });
 
+// 建立房間與「離開房間」二次確認
 document.getElementById("btn-create-room").addEventListener("click", createOnlineRoom);
+
 document.getElementById("btn-leave-room").addEventListener("click", async () => {
+  if (isActivelyPlayingOnline()) {
+    state.pendingModeSwitch = null;
+    el.confirmLeaveModal.classList.remove("hidden");
+  } else {
+    await cleanupCurrentRoom(true);
+    appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
+    returnToLobbyUI();
+  }
+});
+
+document.getElementById("btn-cancel-leave").addEventListener("click", () => {
+  state.pendingModeSwitch = null;
+  el.confirmLeaveModal.classList.add("hidden");
+});
+
+document.getElementById("btn-confirm-leave").addEventListener("click", async () => {
+  el.confirmLeaveModal.classList.add("hidden");
+  const targetMode = state.pendingModeSwitch;
+  state.pendingModeSwitch = null;
+
   await cleanupCurrentRoom(true);
   appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
-  returnToLobbyUI();
+  if (targetMode && targetMode !== "online") {
+    switchGameMode(targetMode, true);
+  } else {
+    returnToLobbyUI();
+  }
 });
 
 document.getElementById("btn-confirm-leave-notice").addEventListener("click", () => {
   el.leaveNoticeModal.classList.add("hidden");
 });
 
+// 同意 / 婉拒對手的重新開局請求
+document.getElementById("btn-accept-restart").addEventListener("click", async () => {
+  el.restartRequestModal.classList.add("hidden");
+  if (!db || !state.roomId) return;
+  const snap = await db.collection("msn_minesweeper_rooms").doc(state.roomId).get();
+  const reqDiff = snap.data()?.restartRequest?.difficulty || state.difficulty;
+  await executeOnlineRoomReset(reqDiff);
+});
+
+document.getElementById("btn-reject-restart").addEventListener("click", async () => {
+  el.restartRequestModal.classList.add("hidden");
+  if (!db || !state.roomId) return;
+  await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+    restartRequest: null
+  });
+  await sendOnlineChatMessage(`❌ ${state.user.name} 婉拒了重新開局請求，繼續目前對戰！`, true);
+});
+
+// 點擊「重新一局」或笑臉
 const restartHandler = () => {
   if (state.mode === "online" && state.roomId) {
-    resetOnlineRoomGame();
+    requestOnlineRestart(state.difficulty);
   } else {
     startNewLocalGame();
   }

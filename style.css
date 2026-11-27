@@ -420,7 +420,7 @@ select {
   border: 2px solid #93c5fd;
 }
 
-/* 棋盤容器：自動依螢幕調整格子大小 */
+/* 棋盤容器 */
 .board-wrapper {
   position: relative;
   width: 100%;
@@ -646,7 +646,7 @@ select {
   border: 2px solid #cbd5e1;
   border-radius: 10px;
   padding: 6px 10px;
-  font-size: 16px; /* 防止 iPhone Safari 自動放大 */
+  font-size: 16px;
   min-width: 0;
 }
 
@@ -742,7 +742,7 @@ select {
   padding: 10px 14px;
   border: 2px solid #93c5fd;
   border-radius: 12px;
-  font-size: 16px; /* 防止 iPhone Safari 自動放大 */
+  font-size: 16px;
   text-align: center;
   font-weight: 700;
   margin: 12px 0;
@@ -770,6 +770,12 @@ select {
   transform: scale(1.06);
 }
 
+.modal-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .big-btn {
   width: 100%;
   padding: 12px;
@@ -784,9 +790,7 @@ select {
   margin-bottom: 16px;
 }
 
-/* =========================================================
-   iPhone 16 與手機直向螢幕滿版自適應 (<= 768px)
-   ========================================================= */
+/* iPhone 16 與手機直向螢幕滿版自適應 */
 @media (max-width: 768px) {
   body {
     padding: 0;

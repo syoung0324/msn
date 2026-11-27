@@ -145,7 +145,7 @@
           <span class="chat-tip" id="chat-mode-label">單機互動模式</span>
         </div>
         <div id="chat-messages" class="chat-messages">
-          <div class="sys-msg">歡迎進入 MSN 踩地雷對戰！搶先找到過半數小蜜蜂獲勝！</div>
+          <div class="sys-msg">歡迎進入 MSN 踩地雷對戰！搶先找到過半數小蜜蜂的人獲勝！</div>
         </div>
         <!-- 快捷貼圖列 -->
         <div class="quick-stickers">
@@ -163,7 +163,43 @@
     </div>
   </div>
 
-  <!-- 對手離開房間通知彈窗 -->
+  <!-- 1. 線上對戰：請求對手同意「重新開局」彈窗 -->
+  <div id="restart-request-modal" class="modal-overlay hidden">
+    <div class="msn-dialog">
+      <div class="msn-titlebar">
+        <span>🔄 重新開局請求</span>
+      </div>
+      <div class="msn-dialog-body">
+        <div class="result-emoji">🤝</div>
+        <h2 id="restart-req-title">對手希望重新開啟一局</h2>
+        <p id="restart-req-desc" class="sub-text">是否同意結束目前盤面並重新開始一局？</p>
+        <div class="modal-btn-row">
+          <button type="button" id="btn-reject-restart" class="btn-secondary big-btn">❌ 婉拒</button>
+          <button type="button" id="btn-accept-restart" class="btn-primary big-btn">✅ 同意重開</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 對戰中「確認離開房間」二次確認彈窗 -->
+  <div id="confirm-leave-modal" class="modal-overlay hidden">
+    <div class="msn-dialog">
+      <div class="msn-titlebar">
+        <span>⚠️ 確認離開房間</span>
+      </div>
+      <div class="msn-dialog-body">
+        <div class="result-emoji">🚪</div>
+        <h2>確定要離開目前的對戰房間嗎？</h2>
+        <p class="sub-text">離開後本場對戰將會直接結束，並通知對手已離線。</p>
+        <div class="modal-btn-row">
+          <button type="button" id="btn-cancel-leave" class="btn-secondary big-btn">繼續對戰</button>
+          <button type="button" id="btn-confirm-leave" class="btn-danger big-btn">確定離開</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. 對手已離開房間通知彈窗 -->
   <div id="leave-notice-modal" class="modal-overlay hidden">
     <div class="msn-dialog">
       <div class="msn-titlebar">
@@ -178,7 +214,7 @@
     </div>
   </div>
 
-  <!-- 勝負結算彈窗 -->
+  <!-- 4. 勝負結算彈窗 -->
   <div id="result-modal" class="modal-overlay hidden">
     <div class="msn-dialog result-dialog">
       <div class="msn-titlebar">
@@ -188,12 +224,12 @@
         <div id="result-emoji" class="result-emoji">🥳</div>
         <h2 id="result-title">恭喜獲勝！</h2>
         <p id="result-detail" class="result-detail">紅隊 15 顆 VS 藍隊 11 顆</p>
-        <button type="button" id="btn-play-again" class="btn-primary big-btn">⚡ 再戰一局</button>
+        <button type="button" id="btn-play-again" class="btn-primary big-btn">⚡ 請求再戰一局</button>
       </div>
     </div>
   </div>
 
-  <!-- 規則說明彈窗 -->
+  <!-- 5. 規則說明彈窗 -->
   <div id="rules-modal" class="modal-overlay hidden">
     <div class="msn-dialog">
       <div class="msn-titlebar">
@@ -204,7 +240,7 @@
           <li>🎯 <strong>搶分獲勝：</strong>主動把藏在草地裡的小蜜蜂找出來！先搶到過半數小蜜蜂的玩家獲勝。</li>
           <li>⚡ <strong>連擊獎勵：</strong>點中小蜜蜂得 1 分，而且<strong>可以繼續連續點擊下一格</strong>，直到沒猜中才換對手！</li>
           <li>🔢 <strong>數字線索：</strong>點到安全草地會顯示周圍 8 格有幾隻小蜜蜂，根據數字推理位置並換對手進攻。</li>
-          <li>📳 <strong>MSN 彩蛋：</strong>隨時可以點擊「震動」或傳送貼圖跟對方互動喔！</li>
+          <li>🤝 <strong>線上禮儀：</strong>線上對戰想重開新局需先徵求對手同意；對戰中離開房間也會有二次確認。</li>
         </ul>
         <button type="button" id="btn-close-rules" class="btn-primary big-btn">我知道了！</button>
       </div>
