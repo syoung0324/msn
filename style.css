@@ -891,11 +891,11 @@ body {
 }
 
 /* ==========================================
-   右側 MSN 對話框
+   右側 LINE 風格即時對話框（頭像/名字與氣泡分離）
    ========================================== */
 .chat-panel {
-  background: #f8fafc;
-  border: 1.5px solid #bfdbfe;
+  background: #d5e4f7;
+  border: 1.5px solid #93c5fd;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
@@ -906,8 +906,8 @@ body {
 }
 
 .chat-header {
-  background: #dbeafe;
-  color: #1e3a8a;
+  background: #2563eb;
+  color: #ffffff;
   padding: 9px 12px;
   font-weight: 800;
   font-size: 0.88rem;
@@ -918,89 +918,159 @@ body {
 }
 
 .chat-channel-badge {
-  background: #fff;
-  color: #1d4ed8;
-  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  padding: 2px 9px;
   border-radius: 999px;
   font-size: 0.73rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 
 .chat-messages {
   flex: 1;
-  padding: 10px;
+  padding: 10px 10px 12px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+  background: #d5e4f7;
 }
 
 .sys-msg {
   align-self: center;
-  background: #e2e8f0;
-  color: #475569;
-  font-size: 0.75rem;
-  padding: 4px 10px;
-  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.28);
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
   text-align: center;
-  max-width: 94%;
+  max-width: 92%;
+  line-height: 1.35;
+}
+
+/* LINE 單則訊息列 */
+.chat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.chat-row.me {
+  justify-content: flex-end;
+}
+
+.chat-row.other {
+  justify-content: flex-start;
+}
+
+.chat-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.1);
+}
+
+.chat-content-col {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+  min-width: 0;
+}
+
+.chat-row.me .chat-content-col {
+  align-items: flex-end;
+}
+
+.chat-row.other .chat-content-col {
+  align-items: flex-start;
+}
+
+.chat-sender-name {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 3px;
+  padding: 0 4px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-bubble {
-  max-width: 84%;
-  padding: 7px 11px;
-  border-radius: 14px;
-  font-size: 0.85rem;
-  line-height: 1.35;
+  position: relative;
+  padding: 8px 12px;
+  border-radius: 16px;
+  font-size: 0.88rem;
+  line-height: 1.42;
   word-break: break-word;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
 }
 
+/* 自己發出的訊息：LINE 經典綠色氣泡 */
 .chat-bubble.me {
-  align-self: flex-end;
-  background: #2563eb;
-  color: #fff;
-  border-bottom-right-radius: 4px;
+  background: #8de055;
+  color: #0f172a;
+  border-top-right-radius: 4px;
 }
 
+.chat-bubble.me::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -6px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 7px 0 0;
+  border-color: #8de055 transparent transparent transparent;
+}
+
+/* 對方發出的訊息：LINE 經典白色氣泡 */
 .chat-bubble.other {
-  align-self: flex-start;
   background: #ffffff;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
-  border-bottom-left-radius: 4px;
+  color: #0f172a;
+  border-top-left-radius: 4px;
 }
 
-.chat-bubble .sender {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  opacity: 0.9;
-  margin-bottom: 2px;
-}
-
-.chat-sender-img {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  object-fit: cover;
+.chat-bubble.other::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -6px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 7px 8px 0;
+  border-color: transparent #ffffff transparent transparent;
 }
 
 .sticker-bar {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
+  gap: 5px;
   padding: 6px 8px;
   background: #eff6ff;
-  border-top: 1px solid #dbeafe;
+  border-top: 1px solid #bfdbfe;
 }
 
 .sticker-btn {
   background: #fff;
   border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  padding: 5px 2px;
+  border-radius: 999px;
+  padding: 5px 4px;
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
@@ -1022,19 +1092,25 @@ body {
   flex: 1;
   min-width: 0;
   border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 7px 10px;
+  border-radius: 999px;
+  padding: 7px 13px;
   font-size: 0.88rem;
   outline: none;
+  background: #f8fafc;
+}
+
+.chat-form input:focus {
+  border-color: #06c755;
+  background: #ffffff;
 }
 
 .btn-send {
-  background: #2563eb;
+  background: #06c755;
   color: #fff;
   border: none;
-  border-radius: 10px;
-  padding: 0 13px;
-  font-weight: 700;
+  border-radius: 999px;
+  padding: 0 15px;
+  font-weight: 800;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1123,7 +1199,7 @@ body {
   }
 
   .chat-panel {
-    height: 310px;
+    height: 320px;
   }
 
   .board-wrapper {
