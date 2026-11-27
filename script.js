@@ -227,6 +227,7 @@ const state = {
   pendingModeSwitch: null,
   unsubLobby: null,
   unsubLobbyUsers: null,
+  unsubLobbyChat: null,
   unsubRoom: null,
   unsubChat: null,
   lastNudgeTs: 0,
@@ -351,7 +352,7 @@ window.addEventListener("resize", updateResponsiveCellSize);
 window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
 
 // ==========================================
-// 7. 登入與線上大廳（在線人員 + 等待房間條列）
+// 7. 登入與線上大廳（在線人員 + 等待房間 + 公開大廳聊天室）
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -384,6 +385,45 @@ async function removeLobbyPresence() {
   } catch (e) {}
 }
 
+function listenToLobbyChat() {
+  if (!db) return;
+  if (state.unsubLobbyChat) {
+    state.unsubLobbyChat();
+    state.unsubLobbyChat = null;
+  }
+
+  el.chatMessages.innerHTML = "";
+  appendSystemMsg("📢 已連線至 MSN 線上大廳公開聊天室，所有大廳玩家都能看到彼此的訊息！");
+
+  let isInitialSnapshot = true;
+  state.unsubLobbyChat = db
+    .collection("msn_minesweeper_lobby_messages")
+    .orderBy("createdAt", "asc")
+    .limitToLast(35)
+    .onSnapshot(
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const msg = change.doc.data();
+            if (msg.isSystem) {
+              appendSystemMsg(msg.text);
+            } else {
+              const isMe = msg.uid === state.user.uid;
+              appendChatBubble(msg.name, msg.avatar, msg.text, isMe);
+              if (!isMe && !isInitialSnapshot) {
+                sfx.playIcqUhOh();
+              }
+            }
+          }
+        });
+        isInitialSnapshot = false;
+      },
+      (err) => {
+        console.warn("大廳聊天室監聽提示：", err);
+      }
+    );
+}
+
 function enterLobbyHandler() {
   const nick = el.nicknameInput.value.trim();
   state.user.name = nick || generateCuteNickname();
@@ -397,7 +437,7 @@ function enterLobbyHandler() {
     sfx.playIcqUhOh();
   } catch (e) {}
 
-  // 登入後預設進入「線上大廳」
+  // 登入後預設進入「線上大廳」並啟動公開聊天室
   switchGameMode("online", true);
 
   try {
@@ -443,7 +483,6 @@ function listenToLobbyUsers() {
           }
         });
 
-        // 確保自己一定出現在在線清單第一位
         const others = activeUsers.filter((u) => u.uid !== state.user.uid);
         const selfEntry = {
           uid: state.user.uid,
@@ -666,7 +705,7 @@ async function handleCellClick(idx) {
 
   if (state.mode === "online") {
     if (!state.roomId) {
-      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「➕ 建立對戰房間」！",);
+      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「➕ 建立對戰房間」！");
       return;
     }
     if (state.p2Info.avatar === "⏳") {
@@ -855,7 +894,7 @@ async function createOnlineRoom() {
     await updateLobbyPresence(`開房等待中 (#${roomId})`);
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
-    await sendOnlineChatMessage(`我建立了房間 #${roomId}，正在大廳等待對手加入！🐝`, true);
+    await sendOnlineChatMessage(`我建立了房間 #${roomId}，正在等待對手加入！🐝`, true);
   } catch (err) {
     console.error(err);
     appendSystemMsg("❌ 建立房間失敗，請檢查 Firestore 安全規則是否允許寫入。");
@@ -902,6 +941,10 @@ async function joinOnlineRoomById(roomId) {
 }
 
 function enterOnlineRoomUI(roomId) {
+  if (state.unsubLobbyChat) {
+    state.unsubLobbyChat();
+    state.unsubLobbyChat = null;
+  }
   el.roomLobbyControls.classList.add("hidden");
   el.roomActiveBar.classList.remove("hidden");
   el.displayRoomCode.textContent = roomId;
@@ -919,6 +962,9 @@ function returnToLobbyUI() {
   state.roomStatus = "waiting";
   state.waitingRestartAck = false;
   updateLobbyPresence("大廳待機中");
+  if (db && state.mode === "online") {
+    listenToLobbyChat();
+  }
   startNewLocalGame(false);
 }
 
@@ -1100,13 +1146,13 @@ function handleOpponentLeftRoom(leaverName) {
   state.waitingRestartAck = false;
 
   sfx.playLeaveAlert();
-  appendSystemMsg(`👋 對手「${leaverName}」已經離開房間，已為您返回線上大廳！`);
 
   el.leaveNoticeTitle.textContent = `👋 ${leaverName} 已經離開房間`;
   el.leaveNoticeDesc.textContent = "對戰已結束，系統已為您返回線上大廳，您可以重新建立或加入其他房間！";
   el.leaveNoticeModal.classList.remove("hidden");
 
   returnToLobbyUI();
+  appendSystemMsg(`👋 對手「${leaverName}」已經離開房間，已為您返回線上大廳！`);
 }
 
 async function cleanupCurrentRoom(notifyOpponent = true) {
@@ -1261,7 +1307,7 @@ function triggerWindowShake() {
 }
 
 // ==========================================
-// 12. 聊天室與按鈕事件綁定
+// 12. 聊天室與按鈕事件綁定（支援大廳公開聊天 + 房間聊天）
 // ==========================================
 function appendSystemMsg(text) {
   const div = document.createElement("div");
@@ -1285,19 +1331,33 @@ function escapeHtml(str) {
 
 async function sendOnlineChatMessage(text, isSystem = false) {
   if (!text.trim()) return;
-  if (db && state.mode === "online" && state.roomId) {
-    await db
-      .collection("msn_minesweeper_rooms")
-      .doc(state.roomId)
-      .collection("messages")
-      .add({
-        uid: state.user.uid,
-        name: state.user.name,
-        avatar: state.user.avatar,
-        text,
-        isSystem,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+
+  if (db && state.mode === "online") {
+    const payload = {
+      uid: state.user.uid,
+      name: state.user.name,
+      avatar: state.user.avatar,
+      text,
+      isSystem,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+      if (state.roomId) {
+        // 在對戰房間內：傳送到該房間專屬聊天室
+        await db
+          .collection("msn_minesweeper_rooms")
+          .doc(state.roomId)
+          .collection("messages")
+          .add(payload);
+      } else {
+        // 在線上對戰大廳：公開廣播給所有大廳在線人員
+        await db.collection("msn_minesweeper_lobby_messages").add(payload);
+      }
+    } catch (err) {
+      console.error("發送線上訊息失敗：", err);
+      appendSystemMsg("⚠️ 訊息傳送失敗，請確認網路或 Firestore 權限設定。");
+    }
   } else {
     appendChatBubble(state.user.name, state.user.avatar, text, true);
     sfx.playIcqUhOh();
@@ -1339,9 +1399,15 @@ function switchGameMode(newMode, skipConfirm = false) {
     el.onlinePanel.classList.remove("hidden");
     returnToLobbyUI();
   } else {
+    if (state.unsubLobbyChat) {
+      state.unsubLobbyChat();
+      state.unsubLobbyChat = null;
+    }
     cleanupCurrentRoom(true);
     removeLobbyPresence();
     el.onlinePanel.classList.add("hidden");
+    el.chatMessages.innerHTML = "";
+    appendSystemMsg(newMode === "ai" ? "已切換至電腦互動模式，快來挑戰吧！" : "已切換至雙人同樂模式！");
     el.chatModeLabel.textContent = newMode === "ai" ? "電腦陪玩聊天" : "雙人同樂模式";
     startNewLocalGame(true);
   }
@@ -1369,6 +1435,8 @@ document.getElementById("btn-nudge").addEventListener("click", async () => {
       nudgeFrom: state.user.name
     });
     await sendOnlineChatMessage(`📳 ${state.user.name} 傳送了一個來電震動！`, true);
+  } else if (db && state.mode === "online" && !state.roomId) {
+    await sendOnlineChatMessage(`📳 ${state.user.name} 在大廳發送了一個來電震動！`, true);
   } else {
     appendSystemMsg(`📳 你發送了一個來電震動！`);
   }
@@ -1401,8 +1469,8 @@ document.getElementById("btn-leave-room").addEventListener("click", async () => 
     el.confirmLeaveModal.classList.remove("hidden");
   } else {
     await cleanupCurrentRoom(true);
-    appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
     returnToLobbyUI();
+    appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
   }
 });
 
@@ -1417,11 +1485,11 @@ document.getElementById("btn-confirm-leave").addEventListener("click", async () 
   state.pendingModeSwitch = null;
 
   await cleanupCurrentRoom(true);
-  appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
   if (targetMode && targetMode !== "online") {
     switchGameMode(targetMode, true);
   } else {
     returnToLobbyUI();
+    appendSystemMsg("🚪 您已離開房間並返回線上大廳。");
   }
 });
 
