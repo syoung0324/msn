@@ -529,6 +529,94 @@ select {
   100% { opacity: 0; transform: translateY(-36px) scale(1.2); }
 }
 
+/* =========================================================
+   螢幕中央「換您囉！」可愛快閃提示視窗（不擋點擊、自動淡出）
+   ========================================================= */
+.turn-toast {
+  position: fixed;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 90;
+  pointer-events: none;
+}
+
+.turn-toast-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef08a 100%);
+  border: 3px solid #f59e0b;
+  box-shadow: 0 14px 32px rgba(245, 158, 11, 0.38), 0 0 0 5px rgba(255, 255, 255, 0.78);
+  animation: turnToastPopFade 1.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.turn-toast-card.team-p1 {
+  background: linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);
+  border-color: #ef4444;
+  box-shadow: 0 14px 32px rgba(239, 68, 68, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.82);
+}
+
+.turn-toast-card.team-p2 {
+  background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+  border-color: #2563eb;
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.82);
+}
+
+.turn-toast-avatar {
+  font-size: 2.2rem;
+  background: #ffffff;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.turn-toast-title {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #1e293b;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.turn-toast-sub {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #475569;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+@keyframes turnToastPopFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(16px);
+  }
+  16% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-4px);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.9) translateY(-14px);
+  }
+}
+
 .bottom-tools {
   display: flex;
   justify-content: center;

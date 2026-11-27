@@ -23,7 +23,7 @@ try {
 }
 
 // ==========================================
-// 2. 刺激動態音效引擎 + 經典 ICQ "Uh-oh!" 訊息音效
+// 2. 刺激動態音效引擎 + 經典 ICQ "Uh-oh!" + 輪到我方鈴聲
 // ==========================================
 class ArcadeSoundEngine {
   constructor() {
@@ -86,6 +86,13 @@ class ArcadeSoundEngine {
 
   playTurnSwitch() {
     this.playTone(440, "sine", 0.08, 0, 0.15, 330);
+  }
+
+  // 可愛清脆「換您囉！」雙音鈴聲
+  playMyTurnBell() {
+    this.playTone(783.99, "sine", 0.11, 0, 0.26); // G5
+    this.playTone(1046.5, "triangle", 0.22, 0.09, 0.28); // C6
+    this.playTone(1318.51, "sine", 0.18, 0.16, 0.16); // E6 泛音點綴
   }
 
   playMatchPointAlert() {
@@ -191,6 +198,7 @@ const state = {
   hintsLeft: 2,
   gameOver: false,
   aiTimer: null,
+  turnToastTimer: null,
 
   roomId: null,
   myRole: 1,
@@ -219,6 +227,11 @@ const el = {
   boardWrapper: document.getElementById("board-wrapper"),
   board: document.getElementById("board"),
   fxLayer: document.getElementById("fx-layer"),
+  turnToast: document.getElementById("turn-toast"),
+  turnToastCard: document.getElementById("turn-toast-card"),
+  turnToastAvatar: document.getElementById("turn-toast-avatar"),
+  turnToastTitle: document.getElementById("turn-toast-title"),
+  turnToastSub: document.getElementById("turn-toast-sub"),
   p1Card: document.getElementById("card-p1"),
   p2Card: document.getElementById("card-p2"),
   p1Avatar: document.getElementById("p1-avatar"),
@@ -256,7 +269,33 @@ const el = {
 };
 
 // ==========================================
-// 5. 自適應螢幕格子尺寸計算 (iPhone 16 滿版核心)
+// 5. 螢幕中央「換您囉！」可愛快閃提示
+// ==========================================
+function showYourTurnPopup(playerName, avatar, teamRole = 1) {
+  if (!el.turnToast || state.gameOver) return;
+  clearTimeout(state.turnToastTimer);
+
+  el.turnToastAvatar.textContent = avatar || "🐶";
+  el.turnToastTitle.textContent = "⚡ 換您囉！";
+  el.turnToastSub.textContent = `輪到【${playerName}】進攻抓蜜蜂 🐝`;
+
+  el.turnToastCard.className = `turn-toast-card ${teamRole === 2 ? "team-p2" : "team-p1"}`;
+  el.turnToast.classList.remove("hidden");
+
+  // 重新觸發彈跳淡出動畫
+  el.turnToastCard.style.animation = "none";
+  void el.turnToastCard.offsetWidth;
+  el.turnToastCard.style.animation = "";
+
+  sfx.playMyTurnBell();
+
+  state.turnToastTimer = setTimeout(() => {
+    el.turnToast.classList.add("hidden");
+  }, 1350);
+}
+
+// ==========================================
+// 6. 自適應螢幕格子尺寸計算 (iPhone 16 滿版核心)
 // ==========================================
 function updateResponsiveCellSize() {
   if (!el.boardWrapper) return;
@@ -281,7 +320,7 @@ window.addEventListener("resize", updateResponsiveCellSize);
 window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
 
 // ==========================================
-// 6. 登入與大廳即時房間監聽
+// 7. 登入與大廳即時房間監聽
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -394,7 +433,7 @@ function renderWaitingRoomsList(rooms) {
 }
 
 // ==========================================
-// 7. 棋盤生成與核心踩地雷邏輯
+// 8. 棋盤生成與核心踩地雷邏輯
 // ==========================================
 function generateBoardData(rows, cols, totalMines) {
   const total = rows * cols;
@@ -470,7 +509,7 @@ function floodReveal(board, startIdx, rows, cols) {
 }
 
 // ==========================================
-// 8. 單機 / 電腦 AI 開局與點擊處理
+// 9. 單機 / 電腦 AI 開局與點擊處理
 // ==========================================
 function startNewLocalGame() {
   clearTimeout(state.aiTimer);
@@ -552,11 +591,22 @@ function processLocalMove(idx) {
     state.combo = 0;
     state.turn = state.turn === 1 ? 2 : 1;
     el.faceBtn.textContent = "😊";
-    sfx.playTurnSwitch();
     renderAll();
 
-    if (!state.gameOver && state.mode === "ai" && state.turn === 2) {
-      scheduleAiTurn();
+    if (!state.gameOver) {
+      if (state.mode === "ai") {
+        if (state.turn === 1) {
+          // 電腦沒猜中地雷，換回玩家時彈出可愛提示視窗加音效
+          showYourTurnPopup(state.p1Info.name, state.p1Info.avatar, 1);
+        } else {
+          sfx.playTurnSwitch();
+          scheduleAiTurn();
+        }
+      } else if (state.mode === "local") {
+        // 現場雙人模式交換回合提示
+        const nextPlayer = state.turn === 1 ? state.p1Info : state.p2Info;
+        showYourTurnPopup(nextPlayer.name, nextPlayer.avatar, state.turn);
+      }
     }
   }
 }
@@ -615,7 +665,6 @@ function checkWinCondition() {
     el.resultTitle.textContent = `🎉 ${winnerName} 獲得勝利！`;
     el.resultDetail.textContent = `${state.p1Info.name} ${state.scores[1]} 顆 🐝  VS  ${state.p2Info.name} ${state.scores[2]} 顆 🐝`;
 
-    // 若已按下請求重開正在等對方確認，不再重複跳出結算視窗
     if (!state.waitingRestartAck) {
       el.resultModal.classList.remove("hidden");
     }
@@ -623,7 +672,7 @@ function checkWinCondition() {
 }
 
 // ==========================================
-// 9. Firebase Firestore 線上開房、重開徵求同意與離線確認
+// 10. Firebase Firestore 線上開房、重開徵求同意與離線確認
 // ==========================================
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -787,12 +836,6 @@ function listenToRoom(roomId) {
     el.roomStatusText.textContent =
       data.status === "waiting" ? "⏳ 等待對手加入..." : "🔥 對戰進行中！";
 
-    if (data.scores[1] > prevScores[1] || data.scores[2] > prevScores[2]) {
-      sfx.playMineScore(state.combo || 1);
-    } else if (data.turn !== prevTurn && data.status === "playing") {
-      sfx.playTurnSwitch();
-    }
-
     if (data.nudgeAt && data.nudgeAt > state.lastNudgeTs) {
       state.lastNudgeTs = data.nudgeAt;
       triggerWindowShake();
@@ -802,7 +845,6 @@ function listenToRoom(roomId) {
     const req = data.restartRequest;
     if (req && req.status === "pending") {
       if (req.fromUid !== state.user.uid) {
-        // 先隱藏可能開著的結算視窗，避免遮住確認重開視窗
         el.resultModal.classList.add("hidden");
         if (state.lastRestartReqId !== req.id) {
           state.lastRestartReqId = req.id;
@@ -822,6 +864,19 @@ function listenToRoom(roomId) {
     el.resultModal.classList.add("hidden");
     checkWinCondition();
     renderAll();
+
+    // 音效與「換您囉！」螢幕中央快閃提示
+    if (data.scores[1] > prevScores[1] || data.scores[2] > prevScores[2]) {
+      sfx.playMineScore(state.combo || 1);
+    } else if (data.turn !== prevTurn && data.status === "playing" && !state.gameOver) {
+      if (data.turn === state.myRole) {
+        // 對手沒選到地雷，輪到我方時跳出可愛提示視窗加音效
+        const myInfo = state.myRole === 1 ? state.p1Info : state.p2Info;
+        showYourTurnPopup(myInfo.name, myInfo.avatar, state.myRole);
+      } else {
+        sfx.playTurnSwitch();
+      }
+    }
   });
 
   state.unsubChat = roomRef
@@ -848,10 +903,8 @@ function listenToRoom(roomId) {
 async function requestOnlineRestart(targetDifficulty = state.difficulty) {
   if (!db || !state.roomId) return;
 
-  // 立即關閉結算視窗，避免畫面卡住
   el.resultModal.classList.add("hidden");
 
-  // 若房間還在等待對手加入，房主可直接重洗棋盤
   if (state.p2Info.avatar === "⏳") {
     await executeOnlineRoomReset(targetDifficulty);
     return;
@@ -980,7 +1033,7 @@ async function submitOnlineMove(idx) {
 }
 
 // ==========================================
-// 10. 畫面渲染與特效輔助函式
+// 11. 畫面渲染與特效輔助函式
 // ==========================================
 function renderAll() {
   el.p1Avatar.textContent = state.p1Info.avatar;
@@ -1067,7 +1120,7 @@ function triggerWindowShake() {
 }
 
 // ==========================================
-// 11. 聊天室與按鈕事件綁定
+// 12. 聊天室與按鈕事件綁定
 // ==========================================
 function appendSystemMsg(text) {
   const div = document.createElement("div");
