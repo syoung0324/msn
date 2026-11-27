@@ -88,7 +88,7 @@ class ArcadeSoundEngine {
     this.playTone(440, "sine", 0.08, 0, 0.15, 330);
   }
 
-  // 可愛清脆「換您囉！」雙音鈴聲
+  // 可愛清脆「輪到您進攻囉！」雙音鈴聲
   playMyTurnBell() {
     this.playTone(783.99, "sine", 0.11, 0, 0.26); // G5
     this.playTone(1046.5, "triangle", 0.22, 0.09, 0.28); // C6
@@ -170,6 +170,11 @@ class ArcadeSoundEngine {
 }
 
 const sfx = new ArcadeSoundEngine();
+
+// iPhone / iOS Safari 首次觸控自動解鎖音效引擎
+["touchstart", "pointerdown", "click"].forEach((evt) => {
+  window.addEventListener(evt, () => sfx.init(), { once: true, passive: true });
+});
 
 // ==========================================
 // 3. 遊戲全域狀態與難度設定
@@ -269,15 +274,15 @@ const el = {
 };
 
 // ==========================================
-// 5. 螢幕中央「換您囉！」可愛快閃提示
+// 5. 螢幕中央「輪到您進攻囉！」可愛快閃對話框（出現後自動消失）
 // ==========================================
 function showYourTurnPopup(playerName, avatar, teamRole = 1) {
   if (!el.turnToast || state.gameOver) return;
   clearTimeout(state.turnToastTimer);
 
   el.turnToastAvatar.textContent = avatar || "🐶";
-  el.turnToastTitle.textContent = "⚡ 換您囉！";
-  el.turnToastSub.textContent = `輪到【${playerName}】進攻抓蜜蜂 🐝`;
+  el.turnToastTitle.textContent = "⚡ 輪到您進攻囉！";
+  el.turnToastSub.textContent = `【${playerName}】快點草地抓小蜜蜂 🐝`;
 
   el.turnToastCard.className = `turn-toast-card ${teamRole === 2 ? "team-p2" : "team-p1"}`;
   el.turnToast.classList.remove("hidden");
@@ -291,7 +296,7 @@ function showYourTurnPopup(playerName, avatar, teamRole = 1) {
 
   state.turnToastTimer = setTimeout(() => {
     el.turnToast.classList.add("hidden");
-  }, 1350);
+  }, 1400);
 }
 
 // ==========================================
@@ -346,7 +351,7 @@ function enterLobbyHandler() {
     sfx.playIcqUhOh();
   } catch (e) {}
 
-  startNewLocalGame();
+  startNewLocalGame(true);
 
   try {
     listenToWaitingRooms(true);
@@ -511,7 +516,7 @@ function floodReveal(board, startIdx, rows, cols) {
 // ==========================================
 // 9. 單機 / 電腦 AI 開局與點擊處理
 // ==========================================
-function startNewLocalGame() {
+function startNewLocalGame(showStartToast = false) {
   clearTimeout(state.aiTimer);
   const cfg = DIFFICULTIES[state.difficulty];
   state.rows = cfg.rows;
@@ -532,6 +537,10 @@ function startNewLocalGame() {
 
   el.resultModal.classList.add("hidden");
   renderAll();
+
+  if (showStartToast && state.mode !== "online") {
+    showYourTurnPopup(state.p1Info.name, state.p1Info.avatar, 1);
+  }
 }
 
 async function handleCellClick(idx) {
@@ -596,7 +605,7 @@ function processLocalMove(idx) {
     if (!state.gameOver) {
       if (state.mode === "ai") {
         if (state.turn === 1) {
-          // 電腦沒猜中地雷，換回玩家時彈出可愛提示視窗加音效
+          // 電腦沒猜中地雷，換回玩家時螢幕中央彈出可愛對話框提示加音效
           showYourTurnPopup(state.p1Info.name, state.p1Info.avatar, 1);
         } else {
           sfx.playTurnSwitch();
@@ -793,7 +802,7 @@ function returnToLobbyUI() {
   el.chatModeLabel.textContent = "線上對戰大廳";
   state.roomStatus = "waiting";
   state.waitingRestartAck = false;
-  startNewLocalGame();
+  startNewLocalGame(false);
 }
 
 function listenToRoom(roomId) {
@@ -815,6 +824,8 @@ function listenToRoom(roomId) {
 
     const prevScores = { ...state.scores };
     const prevTurn = state.turn;
+    const prevStatus = state.roomStatus;
+    const wasGameOver = state.gameOver;
 
     state.roomStatus = data.status;
     state.difficulty = data.difficulty;
@@ -865,16 +876,27 @@ function listenToRoom(roomId) {
     checkWinCondition();
     renderAll();
 
-    // 音效與「換您囉！」螢幕中央快閃提示
+    // 判斷是否為「剛開局 / 重開局」或「對手沒猜中地雷換我方」
+    const isFreshMatchStart =
+      data.status === "playing" &&
+      data.scores[1] === 0 &&
+      data.scores[2] === 0 &&
+      (prevStatus === "waiting" || wasGameOver);
+
     if (data.scores[1] > prevScores[1] || data.scores[2] > prevScores[2]) {
       sfx.playMineScore(state.combo || 1);
-    } else if (data.turn !== prevTurn && data.status === "playing" && !state.gameOver) {
-      if (data.turn === state.myRole) {
-        // 對手沒選到地雷，輪到我方時跳出可愛提示視窗加音效
+    } else if (!state.gameOver && data.status === "playing") {
+      if (isFreshMatchStart && data.turn === state.myRole) {
         const myInfo = state.myRole === 1 ? state.p1Info : state.p2Info;
         showYourTurnPopup(myInfo.name, myInfo.avatar, state.myRole);
-      } else {
-        sfx.playTurnSwitch();
+      } else if (data.turn !== prevTurn) {
+        if (data.turn === state.myRole) {
+          // 對手沒選到地雷，輪到我方時在螢幕中央彈出「輪到您進攻囉！」對話框加音效
+          const myInfo = state.myRole === 1 ? state.p1Info : state.p2Info;
+          showYourTurnPopup(myInfo.name, myInfo.avatar, state.myRole);
+        } else {
+          sfx.playTurnSwitch();
+        }
       }
     }
   });
@@ -1201,7 +1223,7 @@ function switchGameMode(newMode, skipConfirm = false) {
     cleanupCurrentRoom(true);
     el.onlinePanel.classList.add("hidden");
     el.chatModeLabel.textContent = newMode === "ai" ? "電腦陪玩聊天" : "雙人同樂模式";
-    startNewLocalGame();
+    startNewLocalGame(true);
   }
 }
 
@@ -1215,7 +1237,7 @@ document.getElementById("difficulty-select").addEventListener("change", (e) => {
     requestOnlineRestart(newDiff);
   } else {
     state.difficulty = newDiff;
-    startNewLocalGame();
+    startNewLocalGame(true);
   }
 });
 
@@ -1313,7 +1335,7 @@ const restartHandler = () => {
   if (state.mode === "online" && state.roomId) {
     requestOnlineRestart(state.difficulty);
   } else {
-    startNewLocalGame();
+    startNewLocalGame(true);
   }
 };
 el.faceBtn.addEventListener("click", restartHandler);

@@ -530,14 +530,16 @@ select {
 }
 
 /* =========================================================
-   螢幕中央「換您囉！」可愛快閃提示視窗（不擋點擊、自動淡出）
+   螢幕中央「輪到您進攻囉！」可愛快閃對話框（不擋點擊、自動淡出）
    ========================================================= */
 .turn-toast {
   position: fixed;
-  top: 46%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 90;
+  width: max-content;
+  max-width: 90vw;
+  z-index: 95;
   pointer-events: none;
 }
 
@@ -549,27 +551,27 @@ select {
   border-radius: 999px;
   background: linear-gradient(135deg, #fffbeb 0%, #fef08a 100%);
   border: 3px solid #f59e0b;
-  box-shadow: 0 14px 32px rgba(245, 158, 11, 0.38), 0 0 0 5px rgba(255, 255, 255, 0.78);
-  animation: turnToastPopFade 1.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  box-shadow: 0 14px 32px rgba(245, 158, 11, 0.38), 0 0 0 5px rgba(255, 255, 255, 0.85);
+  animation: turnToastPopFade 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .turn-toast-card.team-p1 {
   background: linear-gradient(135deg, #fff1f2 0%, #fecdd3 100%);
   border-color: #ef4444;
-  box-shadow: 0 14px 32px rgba(239, 68, 68, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(239, 68, 68, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.88);
 }
 
 .turn-toast-card.team-p2 {
   background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
   border-color: #2563eb;
-  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.35), 0 0 0 5px rgba(255, 255, 255, 0.88);
 }
 
 .turn-toast-avatar {
-  font-size: 2.2rem;
+  font-size: 2.1rem;
   background: #ffffff;
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -578,12 +580,15 @@ select {
   flex-shrink: 0;
 }
 
+.turn-toast-text {
+  min-width: 0;
+}
+
 .turn-toast-title {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 900;
   color: #1e293b;
   line-height: 1.2;
-  white-space: nowrap;
 }
 
 .turn-toast-sub {
@@ -591,6 +596,8 @@ select {
   font-weight: 800;
   color: #475569;
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -601,7 +608,7 @@ select {
   }
   16% {
     opacity: 1;
-    transform: scale(1.08) translateY(-4px);
+    transform: scale(1.07) translateY(-4px);
   }
   28% {
     opacity: 1;
@@ -974,6 +981,33 @@ select {
   .board-wrapper {
     padding: 6px;
     border-radius: 12px;
+  }
+
+  /* 手機版中央「輪到您進攻囉！」對話框位置與尺寸微調 */
+  .turn-toast {
+    top: 42%;
+    max-width: 92vw;
+  }
+
+  .turn-toast-card {
+    padding: 11px 16px;
+    gap: 10px;
+    border-radius: 22px;
+  }
+
+  .turn-toast-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 1.75rem;
+  }
+
+  .turn-toast-title {
+    font-size: 1.08rem;
+  }
+
+  .turn-toast-sub {
+    font-size: 0.78rem;
+    max-width: 62vw;
   }
 
   .bottom-tools {
