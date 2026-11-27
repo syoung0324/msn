@@ -188,7 +188,6 @@ function renderAvatarHtml(avatar, imgClass = "avatar-photo-img") {
   return escapeHtml(safeVal);
 }
 
-// 將本機照片置中裁切為正方形並壓縮為 120x120 JPEG，確保 Firestore 即時同步順暢
 function compressLocalPhotoToAvatar(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -358,7 +357,6 @@ const el = {
   restartReqDesc: document.getElementById("restart-req-desc")
 };
 
-// 初始化先填入一組隨機可愛暱稱
 el.nicknameInput.value = generateCuteNickname();
 
 document.getElementById("btn-random-nickname").addEventListener("click", () => {
@@ -392,20 +390,27 @@ function showYourTurnPopup(playerName, avatar, teamRole = 1) {
 }
 
 // ==========================================
-// 7. 自適應螢幕格子尺寸計算
+// 7. 自適應螢幕格子尺寸計算（支援 iPhone 16e/SE 至寬螢幕電腦）
 // ==========================================
 function updateResponsiveCellSize() {
-  if (!el.boardWrapper) return;
-  const wrapperWidth = el.boardWrapper.clientWidth || window.innerWidth - 24;
-  const isMobile = window.innerWidth <= 768;
-  const gap = state.cols >= 16 && isMobile ? 2 : isMobile ? 3 : 4;
-  const innerPadding = isMobile ? 14 : 20;
+  if (!el.boardWrapper || !el.board) return;
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  const measuredWidth = el.boardWrapper.clientWidth > 0 ? el.boardWrapper.clientWidth : viewportWidth - 16;
+  const wrapperWidth = Math.min(measuredWidth, viewportWidth);
 
-  const availableWidth = wrapperWidth - innerPadding;
+  const isSmallPhone = viewportWidth <= 480;
+  const isMobile = viewportWidth <= 768;
+
+  const gap = state.cols >= 16 && isMobile ? 2 : isSmallPhone ? 3 : 4;
+  const innerPadding = isSmallPhone ? 12 : isMobile ? 16 : 24;
+
+  const availableWidth = Math.max(200, wrapperWidth - innerPadding);
   const rawSize = Math.floor((availableWidth - gap * (state.cols - 1)) / state.cols);
+
+  const minCell = isSmallPhone ? 16 : 18;
   const maxCell = isMobile ? 42 : 36;
-  const cellSize = Math.max(18, Math.min(rawSize, maxCell));
-  const fontSize = Math.max(11, Math.floor(cellSize * 0.56));
+  const cellSize = Math.max(minCell, Math.min(rawSize, maxCell));
+  const fontSize = Math.max(10, Math.floor(cellSize * 0.56));
 
   document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
   document.documentElement.style.setProperty("--cell-gap", `${gap}px`);
@@ -414,7 +419,7 @@ function updateResponsiveCellSize() {
 }
 
 window.addEventListener("resize", updateResponsiveCellSize);
-window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
+window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 180));
 
 // ==========================================
 // 8. 登入（Emoji + 上傳本機大頭照）、心跳偵測與自動踢除機制
@@ -678,6 +683,7 @@ async function enterLobbyHandler() {
 
   await cleanupPreviousReconnectedSession();
   switchGameMode("online", true);
+  requestAnimationFrame(updateResponsiveCellSize);
 
   try {
     await updateLobbyPresence("大廳待機中");
@@ -922,6 +928,7 @@ function startNewLocalGame(showStartToast = false) {
 
   el.resultModal.classList.add("hidden");
   renderAll();
+  requestAnimationFrame(updateResponsiveCellSize);
 
   if (showStartToast && state.mode !== "online") {
     showYourTurnPopup(state.p1Info.name, state.p1Info.avatar, 1);
@@ -1197,6 +1204,7 @@ function enterOnlineRoomUI(roomId) {
   el.displayRoomCode.textContent = roomId;
   el.chatMessages.innerHTML = "";
   el.chatModeLabel.textContent = `房間 #${roomId}`;
+  requestAnimationFrame(updateResponsiveCellSize);
 }
 
 function returnToLobbyUI() {

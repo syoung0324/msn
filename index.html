@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>MSN 踩地雷搶分戰 🐝</title>
   <link rel="stylesheet" href="style.css" />
   <!-- Firebase Compat SDK -->
@@ -61,14 +61,16 @@
           <button type="button" class="mode-btn" data-mode="local">👥 雙人同樂</button>
         </div>
 
-        <select id="difficulty-select" class="diff-select">
-          <option value="easy">🌱 快樂入門 (8×8)</option>
-          <option value="medium" selected>🌼 活力進階 (12×12)</option>
-          <option value="hard">🏆 經典 MSN (16×16)</option>
-        </select>
+        <div class="title-sub-controls">
+          <select id="difficulty-select" class="diff-select">
+            <option value="easy">🌱 快樂入門 (8×8)</option>
+            <option value="medium" selected>🌼 活力進階 (12×12)</option>
+            <option value="hard">🏆 經典 MSN (16×16)</option>
+          </select>
 
-        <button type="button" id="btn-sound" class="icon-btn" title="音效開關">🔊</button>
-        <button type="button" id="btn-rules" class="icon-btn" title="遊戲規則">❓</button>
+          <button type="button" id="btn-sound" class="icon-btn" title="音效開關">🔊</button>
+          <button type="button" id="btn-rules" class="icon-btn" title="遊戲規則">❓</button>
+        </div>
       </div>
     </header>
 
