@@ -2,7 +2,9 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>MSN 踩地雷線上對戰版 - Minesweeper Flags</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -38,7 +40,7 @@
     <header class="msn-titlebar">
       <div class="title-left">
         <span class="msn-buddy-icon">🟢</span>
-        <span class="window-title">MSN 踩地雷對戰版 (Minesweeper Flags)</span>
+        <span class="window-title">MSN 踩地雷對戰版</span>
       </div>
       <div class="title-right">
         <span id="user-badge" class="user-badge">🐶 玩家</span>
@@ -50,45 +52,43 @@
     <!-- 模式切換與控制列 -->
     <div class="control-bar">
       <div class="mode-group">
-        <button type="button" class="mode-btn active" data-mode="ai">🤖 電腦對戰</button>
-        <button type="button" class="mode-btn" data-mode="local">👫 同機雙人</button>
+        <button type="button" class="mode-btn active" data-mode="ai">🤖 電腦</button>
+        <button type="button" class="mode-btn" data-mode="local">👫 雙人</button>
         <button type="button" class="mode-btn" data-mode="online">
-          🌐 線上對戰大廳 <span id="lobby-count-badge" class="lobby-badge hidden">0</span>
+          🌐 線上大廳 <span id="lobby-count-badge" class="lobby-badge hidden">0</span>
         </button>
       </div>
 
       <div class="difficulty-group" id="difficulty-group">
         <select id="difficulty-select">
-          <option value="easy">🌱 快樂入門 (8×8 / 15顆)</option>
-          <option value="medium" selected>🌼 活力進階 (12×12 / 29顆)</option>
-          <option value="hard">🏆 經典 MSN (16×16 / 51顆)</option>
+          <option value="easy">🌱 入門 (8×8 / 15顆)</option>
+          <option value="medium" selected>🌼 進階 (12×12 / 29顆)</option>
+          <option value="hard">🏆 經典 (16×16 / 51顆)</option>
         </select>
-        <button type="button" id="btn-nudge" class="btn-nudge" title="發送來電震動！">📳 震動對手</button>
+        <button type="button" id="btn-nudge" class="btn-nudge" title="發送來電震動！">📳 震動</button>
       </div>
     </div>
 
     <!-- 線上對戰大廳與房間面板 -->
     <div id="online-panel" class="online-panel hidden">
-      <!-- 大廳模式：免輸房號直接點選房間加入，或建立新房間 -->
       <div id="room-lobby-controls" class="lobby-box">
         <div class="lobby-header">
           <div class="lobby-title">
-            <span>🏠 線上對戰大廳（點擊房間即可直接進入對戰）</span>
+            <span>🏠 線上對戰大廳（點房間直接開戰）</span>
           </div>
-          <button type="button" id="btn-create-room" class="btn-primary">➕ 建立新房間</button>
+          <button type="button" id="btn-create-room" class="btn-primary">➕ 建立房間</button>
         </div>
         <div id="waiting-rooms-list" class="waiting-rooms-list">
-          <div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「建立新房間」當房主吧！</div>
+          <div class="empty-lobby">🔍 目前沒有等待中的房間，按「建立房間」當房主吧！</div>
         </div>
       </div>
 
-      <!-- 房間內對戰狀態列 -->
       <div id="room-active-bar" class="room-active-bar hidden">
         <div class="room-info">
           <span>🏠 房號：<strong id="display-room-code">------</strong></span>
-          <span id="room-status-text" class="status-pill">⏳ 等待對手從大廳加入...</span>
+          <span id="room-status-text" class="status-pill">⏳ 等待對手加入...</span>
         </div>
-        <button type="button" id="btn-leave-room" class="btn-danger mini-btn">🚪 離開房間（返回大廳）</button>
+        <button type="button" id="btn-leave-room" class="btn-danger mini-btn">🚪 離開房間</button>
       </div>
     </div>
 
@@ -101,22 +101,22 @@
             <div class="p-avatar" id="p1-avatar">🐶</div>
             <div class="p-info">
               <div class="p-name" id="p1-name">玩家 1</div>
-              <div class="p-sub">紅隊搶分</div>
+              <div class="p-sub">紅隊</div>
             </div>
             <div class="p-score" id="p1-score">0</div>
           </div>
 
           <div class="center-status">
             <button type="button" id="btn-face" class="face-btn" title="重新開局">😊</button>
-            <div class="mines-left">剩餘 <span id="remaining-mines">29</span> 🐝</div>
-            <div class="win-target">先搶 <span id="target-score">15</span> 顆勝</div>
+            <div class="mines-left">剩 <span id="remaining-mines">29</span> 🐝</div>
+            <div class="win-target">搶 <span id="target-score">15</span> 勝</div>
           </div>
 
           <div id="card-p2" class="player-card p2">
             <div class="p-avatar" id="p2-avatar">🤖</div>
             <div class="p-info">
               <div class="p-name" id="p2-name">聰明電腦</div>
-              <div class="p-sub">藍隊搶分</div>
+              <div class="p-sub">藍隊</div>
             </div>
             <div class="p-score" id="p2-score">0</div>
           </div>
@@ -126,14 +126,14 @@
         <div id="turn-banner" class="turn-banner p1-banner">輪到你進攻！點擊草地尋找小蜜蜂 🐝</div>
 
         <!-- 棋盤容器 -->
-        <div class="board-wrapper">
+        <div class="board-wrapper" id="board-wrapper">
           <div id="board" class="board"></div>
           <div id="fx-layer" class="fx-layer"></div>
         </div>
 
         <!-- 底部道具列 -->
         <div class="bottom-tools">
-          <button type="button" id="btn-hint" class="btn-hint">🪄 魔法放大鏡 (<span id="hint-count">2</span>)</button>
+          <button type="button" id="btn-hint" class="btn-hint">🪄 放大鏡 (<span id="hint-count">2</span>)</button>
           <button type="button" id="btn-restart" class="btn-secondary">🔄 重新一局</button>
         </div>
       </section>
@@ -145,7 +145,7 @@
           <span class="chat-tip" id="chat-mode-label">單機互動模式</span>
         </div>
         <div id="chat-messages" class="chat-messages">
-          <div class="sys-msg">歡迎進入 MSN 踩地雷對戰！搶先找到過半數小蜜蜂的人獲勝！</div>
+          <div class="sys-msg">歡迎進入 MSN 踩地雷對戰！搶先找到過半數小蜜蜂獲勝！</div>
         </div>
         <!-- 快捷貼圖列 -->
         <div class="quick-stickers">
@@ -201,12 +201,12 @@
       </div>
       <div class="msn-dialog-body rules-body">
         <ul>
-          <li>🎯 <strong>搶分獲勝：</strong>這不是避開地雷，而是要<strong>主動把小蜜蜂找出來</strong>！先搶到過半數小蜜蜂的玩家獲勝。</li>
+          <li>🎯 <strong>搶分獲勝：</strong>主動把藏在草地裡的小蜜蜂找出來！先搶到過半數小蜜蜂的玩家獲勝。</li>
           <li>⚡ <strong>連擊獎勵：</strong>點中小蜜蜂得 1 分，而且<strong>可以繼續連續點擊下一格</strong>，直到沒猜中才換對手！</li>
           <li>🔢 <strong>數字線索：</strong>點到安全草地會顯示周圍 8 格有幾隻小蜜蜂，根據數字推理位置並換對手進攻。</li>
-          <li>📳 <strong>MSN 彩蛋：</strong>隨時可以點擊「震動對手」或傳送貼圖跟對方互動喔！</li>
+          <li>📳 <strong>MSN 彩蛋：</strong>隨時可以點擊「震動」或傳送貼圖跟對方互動喔！</li>
         </ul>
-        <button type="button" id="btn-close-rules" class="btn-primary">我知道了！</button>
+        <button type="button" id="btn-close-rules" class="btn-primary big-btn">我知道了！</button>
       </div>
     </div>
   </div>

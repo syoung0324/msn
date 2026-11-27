@@ -40,9 +40,7 @@ class ArcadeSoundEngine {
       if (this.ctx && this.ctx.state === "suspended") {
         this.ctx.resume();
       }
-    } catch (e) {
-      // 忽略瀏覽器音效權限限制
-    }
+    } catch (e) {}
   }
 
   playTone(freq, type, duration, startTime = 0, vol = 0.25, slideTo = null) {
@@ -140,7 +138,7 @@ const state = {
     name: "小蜜蜂王",
     avatar: "🐶"
   },
-  mode: "ai", // "ai" | "local" | "online"
+  mode: "ai",
   difficulty: "medium",
   rows: 12,
   cols: 12,
@@ -153,7 +151,6 @@ const state = {
   gameOver: false,
   aiTimer: null,
 
-  // 線上對戰專用狀態
   roomId: null,
   myRole: 1,
   unsubLobby: null,
@@ -174,6 +171,7 @@ const el = {
   avatarPreview: document.getElementById("avatar-preview"),
   appWindow: document.getElementById("app-window"),
   userBadge: document.getElementById("user-badge"),
+  boardWrapper: document.getElementById("board-wrapper"),
   board: document.getElementById("board"),
   fxLayer: document.getElementById("fx-layer"),
   p1Card: document.getElementById("card-p1"),
@@ -209,7 +207,32 @@ const el = {
 };
 
 // ==========================================
-// 5. 登入與大廳即時房間監聽
+// 5. 自適應螢幕格子尺寸計算 (iPhone 16 滿版核心)
+// ==========================================
+function updateResponsiveCellSize() {
+  if (!el.boardWrapper) return;
+  const wrapperWidth = el.boardWrapper.clientWidth || window.innerWidth - 24;
+  const isMobile = window.innerWidth <= 768;
+  const gap = state.cols >= 16 && isMobile ? 2 : isMobile ? 3 : 4;
+  const innerPadding = isMobile ? 14 : 20;
+
+  const availableWidth = wrapperWidth - innerPadding;
+  const rawSize = Math.floor((availableWidth - gap * (state.cols - 1)) / state.cols);
+  const maxCell = isMobile ? 42 : 36;
+  const cellSize = Math.max(18, Math.min(rawSize, maxCell));
+  const fontSize = Math.max(11, Math.floor(cellSize * 0.56));
+
+  document.documentElement.style.setProperty("--cell-size", `${cellSize}px`);
+  document.documentElement.style.setProperty("--cell-gap", `${gap}px`);
+  document.documentElement.style.setProperty("--cell-font", `${fontSize}px`);
+  el.board.style.gridTemplateColumns = `repeat(${state.cols}, ${cellSize}px)`;
+}
+
+window.addEventListener("resize", updateResponsiveCellSize);
+window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
+
+// ==========================================
+// 6. 登入與大廳即時房間監聽
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -227,7 +250,6 @@ function enterLobbyHandler() {
   state.user.name = nick || "快樂小玩家";
   el.userBadge.textContent = `${state.user.avatar} ${state.user.name}`;
 
-  // 立即切換視窗顯示，不被外部服務阻塞
   el.loginModal.classList.add("hidden");
   el.appWindow.classList.remove("hidden");
 
@@ -238,7 +260,6 @@ function enterLobbyHandler() {
 
   startNewLocalGame();
 
-  // 登入後監聽線上大廳是否有等待中的房間
   try {
     listenToWaitingRooms(true);
   } catch (e) {
@@ -287,7 +308,7 @@ function listenToWaitingRooms(autoSwitchIfAvailable = false) {
         renderWaitingRoomsList(rooms);
       },
       (err) => {
-        console.warn("Firestore 監聽權限或連線提示：", err);
+        console.warn("Firestore 監聽提示：", err);
         el.waitingRoomsList.innerHTML =
           '<div class="empty-lobby">⚠️ 無法連線至線上大廳（請檢查 Firestore 安全規則是否允許讀寫）</div>';
       }
@@ -298,7 +319,7 @@ function renderWaitingRoomsList(rooms) {
   el.waitingRoomsList.innerHTML = "";
   if (rooms.length === 0) {
     el.waitingRoomsList.innerHTML =
-      '<div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「➕ 建立新房間」當房主吧！</div>';
+      '<div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「➕ 建立房間」當房主吧！</div>';
     return;
   }
 
@@ -324,7 +345,7 @@ function renderWaitingRoomsList(rooms) {
 }
 
 // ==========================================
-// 6. 棋盤生成與核心踩地雷邏輯
+// 7. 棋盤生成與核心踩地雷邏輯
 // ==========================================
 function generateBoardData(rows, cols, totalMines) {
   const total = rows * cols;
@@ -400,7 +421,7 @@ function floodReveal(board, startIdx, rows, cols) {
 }
 
 // ==========================================
-// 7. 單機 / 電腦 AI 開局與點擊處理
+// 8. 單機 / 電腦 AI 開局與點擊處理
 // ==========================================
 function startNewLocalGame() {
   clearTimeout(state.aiTimer);
@@ -432,7 +453,7 @@ async function handleCellClick(idx) {
 
   if (state.mode === "online") {
     if (!state.roomId) {
-      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「建立新房間」！");
+      appendSystemMsg("⚠️ 請先從上方大廳選擇房間加入，或點擊「建立房間」！");
       return;
     }
     if (state.p2Info.avatar === "⏳") {
@@ -548,7 +569,7 @@ function checkWinCondition() {
 }
 
 // ==========================================
-// 8. Firebase Firestore 線上開房、一鍵加入與離開偵測
+// 9. Firebase Firestore 線上開房、一鍵加入與離開偵測
 // ==========================================
 function generateRoomCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -684,7 +705,7 @@ function listenToRoom(roomId) {
     state.p2Info = data.p2 || { name: "等待對手加入...", avatar: "⏳" };
 
     el.roomStatusText.textContent =
-      data.status === "waiting" ? "⏳ 等待對手從大廳加入..." : "🔥 線上對戰進行中！";
+      data.status === "waiting" ? "⏳ 等待對手加入..." : "🔥 對戰進行中！";
 
     if (data.scores[1] > prevScores[1] || data.scores[2] > prevScores[2]) {
       sfx.playMineScore(state.combo || 1);
@@ -820,7 +841,7 @@ async function resetOnlineRoomGame() {
 }
 
 // ==========================================
-// 9. 畫面渲染與特效輔助函式
+// 10. 畫面渲染與特效輔助函式
 // ==========================================
 function renderAll() {
   el.p1Avatar.textContent = state.p1Info.avatar;
@@ -843,20 +864,20 @@ function renderAll() {
   el.turnBanner.className = `turn-banner ${state.turn === 1 ? "p1-banner" : "p2-banner"}`;
   if (state.mode === "online") {
     if (!state.roomId) {
-      el.turnBanner.textContent = "🏠 請從上方大廳選擇房間加入對戰，或點擊「建立新房間」";
+      el.turnBanner.textContent = "🏠 請從上方大廳點選房間加入，或按「建立房間」";
     } else if (state.p2Info.avatar === "⏳") {
-      el.turnBanner.textContent = "⏳ 房間已開啟！正在等待對手從大廳加入...";
+      el.turnBanner.textContent = "⏳ 房間已開啟！等待對手從大廳加入...";
     } else {
       el.turnBanner.textContent =
         state.turn === state.myRole
-          ? "⚡ 輪到你進攻啦！快點擊草地找小蜜蜂！"
+          ? "⚡ 輪到你進攻啦！快點草地找小蜜蜂！"
           : `⏳ 等待 ${activePlayer} 思考中...`;
     }
   } else {
     el.turnBanner.textContent = `🎯 輪到【${activePlayer}】進攻！`;
   }
 
-  el.board.style.gridTemplateColumns = `repeat(${state.cols}, 34px)`;
+  updateResponsiveCellSize();
   el.board.innerHTML = "";
 
   state.board.forEach((cell, idx) => {
@@ -903,7 +924,7 @@ function triggerWindowShake() {
 }
 
 // ==========================================
-// 10. 聊天室與按鈕事件綁定
+// 11. 聊天室與按鈕事件綁定
 // ==========================================
 function appendSystemMsg(text) {
   const div = document.createElement("div");

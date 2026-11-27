@@ -6,16 +6,27 @@
   --p1-bg: #fee2e2;
   --p2-color: #2563eb;
   --p2-bg: #dbeafe;
+  --cell-size: 34px;
+  --cell-gap: 4px;
+  --cell-font: 1rem;
 }
 
 * {
   box-sizing: border-box;
   font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  touch-action: manipulation;
 }
 
 body {
-  margin: 0;
-  min-height: 100vh;
   background: linear-gradient(135deg, #bae6fd 0%, #e0e7ff 50%, #fce7f3 100%);
   display: flex;
   justify-content: center;
@@ -53,7 +64,7 @@ body {
 .msn-titlebar {
   background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 50%, #38bdf8 100%);
   color: #fff;
-  padding: 10px 16px;
+  padding: 10px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -63,14 +74,22 @@ body {
 .title-left, .title-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+.window-title {
+  font-size: 0.95rem;
 }
 
 .user-badge {
   background: rgba(255, 255, 255, 0.22);
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .icon-btn {
@@ -78,45 +97,40 @@ body {
   border: none;
   border-radius: 10px;
   color: #fff;
-  font-size: 1.05rem;
+  font-size: 1rem;
   cursor: pointer;
   padding: 4px 8px;
 }
 
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.4);
-  transform: scale(1.08);
-}
-
 .control-bar {
   background: #eff6ff;
-  padding: 10px 16px;
+  padding: 8px 12px;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border-bottom: 2px solid #dbeafe;
 }
 
 .mode-group, .difficulty-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .mode-btn {
   border: 2px solid #93c5fd;
   background: #fff;
   color: #1d4ed8;
-  padding: 6px 14px;
+  padding: 5px 11px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 0.85rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   transition: all 0.15s;
 }
 
@@ -124,14 +138,13 @@ body {
   background: #2563eb;
   color: #fff;
   border-color: #1d4ed8;
-  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.3);
 }
 
 .lobby-badge {
   background: #ef4444;
   color: #fff;
-  font-size: 0.75rem;
-  padding: 1px 7px;
+  font-size: 0.72rem;
+  padding: 1px 6px;
   border-radius: 999px;
   font-weight: 900;
   animation: badgePop 1.2s infinite alternate;
@@ -143,10 +156,11 @@ body {
 }
 
 select {
-  padding: 6px 12px;
-  border-radius: 12px;
+  padding: 5px 8px;
+  border-radius: 10px;
   border: 2px solid #93c5fd;
   font-weight: 700;
+  font-size: 0.85rem;
   color: #1e3a8a;
   background: #fff;
   cursor: pointer;
@@ -156,18 +170,18 @@ select {
   background: linear-gradient(135deg, #f59e0b, #ea580c);
   color: #fff;
   border: none;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
+  font-size: 0.85rem;
   cursor: pointer;
-  box-shadow: 0 3px 8px rgba(234, 88, 12, 0.3);
 }
 
 /* 線上大廳與房間面板 */
 .online-panel {
   background: #fefce8;
   border-bottom: 2px solid #fde047;
-  padding: 12px 16px;
+  padding: 10px 12px;
 }
 
 .lobby-header {
@@ -175,16 +189,17 @@ select {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
   font-weight: 800;
+  font-size: 0.88rem;
   color: #854d0e;
 }
 
 .waiting-rooms-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
 }
 
 .empty-lobby {
@@ -192,56 +207,54 @@ select {
   background: #fff;
   border: 2px dashed #facc15;
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px;
   text-align: center;
   color: #92400e;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
 .room-card {
   background: #fff;
   border: 2px solid #60a5fa;
-  border-radius: 14px;
-  padding: 10px 14px;
+  border-radius: 12px;
+  padding: 8px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.1);
-  transition: transform 0.15s;
-}
-
-.room-card:hover {
-  transform: translateY(-2px);
-  border-color: #2563eb;
+  gap: 8px;
 }
 
 .room-host-info {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .room-host-avatar {
-  font-size: 1.7rem;
+  font-size: 1.5rem;
   background: #eff6ff;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .room-host-name {
   font-weight: 800;
   color: #1e293b;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .room-meta {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #64748b;
   font-weight: 700;
 }
@@ -250,17 +263,12 @@ select {
   background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   border: none;
-  padding: 7px 14px;
+  padding: 6px 12px;
   border-radius: 10px;
   font-weight: 800;
+  font-size: 0.82rem;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25);
-}
-
-.btn-join-now:hover {
-  filter: brightness(1.06);
-  transform: scale(1.04);
 }
 
 .room-active-bar {
@@ -268,22 +276,23 @@ select {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .room-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  font-size: 0.88rem;
 }
 
 .status-pill {
   background: #fff;
   border: 1px solid #facc15;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: #854d0e;
 }
@@ -292,60 +301,53 @@ select {
 .main-layout {
   display: grid;
   grid-template-columns: 1fr 310px;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px;
   background: #f8fafc;
-}
-
-@media (max-width: 860px) {
-  .main-layout {
-    grid-template-columns: 1fr;
-  }
 }
 
 .scoreboard {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .player-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #fff;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 3px solid #e2e8f0;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  min-width: 0;
   transition: all 0.2s;
 }
 
 .player-card.p1.active-turn {
   border-color: var(--p1-color);
   background: var(--p1-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
 }
 
 .player-card.p2.active-turn {
   border-color: var(--p2-color);
   background: var(--p2-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
 }
 
 .p-avatar {
-  font-size: 1.9rem;
+  font-size: 1.5rem;
   background: #fff;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
 }
 
 .p-info {
@@ -355,20 +357,21 @@ select {
 
 .p-name {
   font-weight: 800;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .p-sub {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #64748b;
 }
 
 .p-score {
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   font-weight: 900;
+  flex-shrink: 0;
 }
 
 .p1 .p-score { color: var(--p1-color); }
@@ -379,29 +382,30 @@ select {
 }
 
 .face-btn {
-  font-size: 2rem;
+  font-size: 1.7rem;
   background: #fef08a;
-  border: 3px solid #eab308;
+  border: 2px solid #eab308;
   border-radius: 50%;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   cursor: pointer;
+  padding: 0;
 }
 
 .mines-left, .win-target {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: #475569;
-  margin-top: 2px;
+  line-height: 1.25;
 }
 
 .turn-banner {
   text-align: center;
-  padding: 7px 12px;
-  border-radius: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
   font-weight: 800;
-  font-size: 0.95rem;
-  margin-bottom: 10px;
+  font-size: 0.88rem;
+  margin-bottom: 8px;
 }
 
 .p1-banner {
@@ -416,51 +420,54 @@ select {
   border: 2px solid #93c5fd;
 }
 
+/* 棋盤容器：自動依螢幕調整格子大小 */
 .board-wrapper {
   position: relative;
+  width: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
   background: #dcfce7;
-  padding: 12px;
-  border-radius: 18px;
+  padding: 8px;
+  border-radius: 16px;
   border: 3px solid #86efac;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .board {
   display: grid;
-  gap: 4px;
+  gap: var(--cell-gap);
   user-select: none;
 }
 
 .cell {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-radius: calc(var(--cell-size) * 0.22);
   border: none;
+  padding: 0;
   font-weight: 900;
-  font-size: 1rem;
+  font-size: var(--cell-font);
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.1s, background 0.15s;
+  transition: transform 0.08s, background 0.15s;
 }
 
 .cell.hidden-cell {
   background: linear-gradient(180deg, #86efac 0%, #4ade80 100%);
-  box-shadow: 0 3px 0 #16a34a;
+  box-shadow: 0 2px 0 #16a34a;
 }
 
-.cell.hidden-cell:hover {
-  transform: translateY(-2px);
-  filter: brightness(1.06);
+.cell.hidden-cell:active {
+  transform: scale(0.92);
 }
 
 .cell.revealed {
   background: #f8fafc;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
   cursor: default;
 }
 
@@ -511,7 +518,7 @@ select {
 .combo-float {
   position: absolute;
   font-weight: 900;
-  font-size: 1.15rem;
+  font-size: 1rem;
   color: #ea580c;
   text-shadow: 0 2px 0 #fff, 0 0 8px #fef08a;
   animation: floatUp 0.9s ease-out forwards;
@@ -519,14 +526,14 @@ select {
 
 @keyframes floatUp {
   0% { opacity: 1; transform: translateY(0) scale(0.8); }
-  100% { opacity: 0; transform: translateY(-42px) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-36px) scale(1.2); }
 }
 
 .bottom-tools {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 /* 右側聊天室 */
@@ -536,23 +543,23 @@ select {
   border: 2px solid #bfdbfe;
   display: flex;
   flex-direction: column;
-  height: 490px;
+  height: 480px;
   overflow: hidden;
 }
 
 .chat-header {
   background: #dbeafe;
-  padding: 9px 12px;
+  padding: 8px 12px;
   font-weight: 800;
   color: #1e3a8a;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .chat-tip {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   background: #fff;
   padding: 2px 8px;
   border-radius: 999px;
@@ -561,11 +568,11 @@ select {
 
 .chat-messages {
   flex: 1;
-  padding: 10px;
+  padding: 8px 10px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: #f8fafc;
 }
 
@@ -573,7 +580,7 @@ select {
   align-self: center;
   background: #e2e8f0;
   color: #475569;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   padding: 4px 10px;
   border-radius: 999px;
   text-align: center;
@@ -581,15 +588,15 @@ select {
 
 .chat-bubble {
   max-width: 85%;
-  padding: 7px 11px;
-  border-radius: 14px;
-  font-size: 0.88rem;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 0.86rem;
   line-height: 1.35;
   word-break: break-word;
 }
 
 .chat-bubble .sender {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
   margin-bottom: 2px;
   opacity: 0.85;
@@ -612,7 +619,7 @@ select {
 .quick-stickers {
   display: flex;
   justify-content: space-around;
-  padding: 6px;
+  padding: 5px;
   background: #f1f5f9;
   border-top: 1px solid #e2e8f0;
 }
@@ -628,7 +635,7 @@ select {
 
 .chat-input-box {
   display: flex;
-  padding: 8px;
+  padding: 7px;
   gap: 6px;
   border-top: 1px solid #e2e8f0;
   background: #fff;
@@ -639,15 +646,16 @@ select {
   border: 2px solid #cbd5e1;
   border-radius: 10px;
   padding: 6px 10px;
-  font-size: 0.88rem;
+  font-size: 16px; /* 防止 iPhone Safari 自動放大 */
+  min-width: 0;
 }
 
 .btn-primary {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: #fff;
   border: none;
-  padding: 8px 16px;
-  border-radius: 12px;
+  padding: 7px 14px;
+  border-radius: 10px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -656,7 +664,7 @@ select {
   background: #e2e8f0;
   color: #1e293b;
   border: none;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -666,7 +674,7 @@ select {
   background: linear-gradient(135deg, #a855f7, #7e22ce);
   color: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border-radius: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -689,11 +697,12 @@ select {
   padding: 0 12px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .mini-btn {
-  padding: 5px 12px;
-  font-size: 0.84rem;
+  padding: 5px 10px;
+  font-size: 0.82rem;
 }
 
 .modal-overlay {
@@ -713,18 +722,18 @@ select {
   border-radius: 20px;
   border: 3px solid #38bdf8;
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
 .msn-dialog-body {
-  padding: 22px;
+  padding: 20px;
   text-align: center;
 }
 
 .avatar-preview, .result-emoji {
-  font-size: 3.4rem;
+  font-size: 3.2rem;
   margin-bottom: 6px;
 }
 
@@ -733,43 +742,159 @@ select {
   padding: 10px 14px;
   border: 2px solid #93c5fd;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 16px; /* 防止 iPhone Safari 自動放大 */
   text-align: center;
   font-weight: 700;
   margin: 12px 0;
 }
 
 .avatar-picker {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
   margin-bottom: 16px;
 }
 
 .avatar-btn {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   background: #f1f5f9;
   border: 2px solid transparent;
   border-radius: 12px;
-  padding: 6px 10px;
+  padding: 6px 0;
   cursor: pointer;
 }
 
 .avatar-btn.active {
   background: #dbeafe;
   border-color: #2563eb;
-  transform: scale(1.1);
+  transform: scale(1.06);
 }
 
 .big-btn {
   width: 100%;
   padding: 12px;
-  font-size: 1.05rem;
+  font-size: 1rem;
 }
 
 .rules-body ul {
   text-align: left;
   padding-left: 18px;
-  line-height: 1.65;
+  line-height: 1.6;
+  font-size: 0.92rem;
   margin-bottom: 16px;
+}
+
+/* =========================================================
+   iPhone 16 與手機直向螢幕滿版自適應 (<= 768px)
+   ========================================================= */
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+    align-items: stretch;
+    background: #f8fafc;
+  }
+
+  .msn-window {
+    max-width: 100%;
+    min-height: 100dvh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .msn-titlebar {
+    padding-top: calc(10px + env(safe-area-inset-top));
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .control-bar {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .mode-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .mode-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 6px;
+    font-size: 0.82rem;
+  }
+
+  .difficulty-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .difficulty-group select {
+    flex: 1;
+    font-size: 14px;
+  }
+
+  .main-layout {
+    grid-template-columns: 1fr;
+    padding: 8px 10px;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .scoreboard {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .player-card {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .p-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 1.25rem;
+  }
+
+  .p-name {
+    font-size: 0.8rem;
+  }
+
+  .p-sub {
+    display: none;
+  }
+
+  .p-score {
+    font-size: 1.25rem;
+  }
+
+  .face-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 1.4rem;
+  }
+
+  .board-wrapper {
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  .bottom-tools {
+    margin-top: 8px;
+  }
+
+  .bottom-tools button {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.88rem;
+  }
+
+  .chat-section {
+    height: 230px;
+  }
 }
