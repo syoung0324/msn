@@ -1,1549 +1,219 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>MSN 踩地雷對戰版 🐝 可愛小花園</title>
-  <!-- 載入可愛圓潤的繁體中文字體 (Noto Sans TC) 與數字字體 (Fredoka) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
-
-  <!-- =====================================================================
-       /* === style.css === */
-       可完整複製此 <style> 內容存為獨立的 style.css 檔案
-       ===================================================================== -->
-  <style>
-    :root {
-      /* 懷舊 MSN 粉藍與奶油黃配色系統 */
-      --msn-sky-top: #cbe8ff;
-      --msn-sky-bottom: #e8f6ff;
-      --msn-window-bg: #fffdf7;
-      --msn-header-start: #5bb3ff;
-      --msn-header-end: #2b8be6;
-      --msn-border: #7cc0ff;
-      --msn-panel-bg: #eef7ff;
-
-      /* 可愛草地方塊顏色 */
-      --tile-covered-top: #98e06c;
-      --tile-covered-bottom: #73c744;
-      --tile-covered-shadow: #539e2b;
-      --tile-revealed: #fff8e7;
-      --tile-revealed-border: #eadbc0;
-
-      /* 雙人玩家專屬顏色 (玩家1 亮紅 / 玩家2 亮藍) */
-      --p1-color: #ff4d6d;
-      --p1-light: #ffe5ec;
-      --p1-shadow: #c9184a;
-      --p2-color: #2196f3;
-      --p2-light: #e3f2fd;
-      --p2-shadow: #1565c0;
-
-      /* 數字高對比色彩 (讓小朋友好辨識) */
-      --num-1: #2563eb;
-      --num-2: #16a34a;
-      --num-3: #ef4444;
-      --num-4: #7c3aed;
-      --num-5: #d97706;
-      --num-6: #0891b2;
-      --num-7: #db2777;
-      --num-8: #4b5563;
-    }
-
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-
-    body {
-      margin: 0;
-      padding: 10px;
-      min-height: 100vh;
-      font-family: 'Noto Sans TC', 'Fredoka', sans-serif;
-      background: linear-gradient(180deg, var(--msn-sky-top) 0%, var(--msn-sky-bottom) 60%, #d7f5d3 100%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    /* 背景漂浮雲朵裝飾 */
-    .cloud {
-      position: fixed;
-      background: rgba(255, 255, 255, 0.85);
-      border-radius: 999px;
-      z-index: 0;
-      pointer-events: none;
-      animation: floatCloud linear infinite;
-    }
-    .cloud::before, .cloud::after {
-      content: '';
-      position: absolute;
-      background: inherit;
-      border-radius: 50%;
-    }
-    .cloud-1 { width: 110px; height: 36px; top: 6%; left: -120px; animation-duration: 38s; }
-    .cloud-1::before { width: 50px; height: 50px; top: -24px; left: 16px; }
-    .cloud-1::after { width: 38px; height: 38px; top: -16px; left: 54px; }
-
-    .cloud-2 { width: 140px; height: 44px; top: 22%; left: -160px; animation-duration: 52s; animation-delay: 8s; }
-    .cloud-2::before { width: 64px; height: 64px; top: -30px; left: 22px; }
-    .cloud-2::after { width: 46px; height: 46px; top: -20px; left: 72px; }
-
-    @keyframes floatCloud {
-      from { transform: translateX(0); }
-      to { transform: translateX(calc(100vw + 220px)); }
-    }
-
-    /* MSN 經典視窗主容器 */
-    .msn-window {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 580px;
-      background: var(--msn-window-bg);
-      border: 4px solid var(--msn-border);
-      border-radius: 26px;
-      box-shadow:
-        0 14px 30px rgba(43, 139, 230, 0.22),
-        inset 0 2px 0 rgba(255, 255, 255, 0.9);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* MSN 經典「來電震動 (Nudge)」動畫 */
-    .msn-window.nudging {
-      animation: msnNudge 0.48s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-    }
-
-    @keyframes msnNudge {
-      0%, 100% { transform: translate(0, 0) rotate(0deg); }
-      10%, 50%, 90% { transform: translate(-9px, -5px) rotate(-1.5deg); }
-      20%, 60% { transform: translate(9px, 5px) rotate(1.5deg); }
-      30%, 70% { transform: translate(-8px, 4px) rotate(-1deg); }
-      40%, 80% { transform: translate(8px, -4px) rotate(1deg); }
-    }
-
-    /* MSN 頂部標題列 */
-    .msn-titlebar {
-      background: linear-gradient(180deg, #74c2ff 0%, var(--msn-header-start) 50%, var(--msn-header-end) 100%);
-      padding: 10px 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      color: #fff;
-      border-bottom: 3px solid #2277cc;
-    }
-
-    .msn-title-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .msn-buddy-badge {
-      width: 34px;
-      height: 34px;
-      background: #ffffff;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.15);
-      flex-shrink: 0;
-    }
-
-    .msn-title-text {
-      font-size: 1.08rem;
-      font-weight: 900;
-      letter-spacing: 0.3px;
-      text-shadow: 0 2px 2px rgba(0, 65, 130, 0.45);
-    }
-
-    .titlebar-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .icon-pill-btn {
-      background: rgba(255, 255, 255, 0.25);
-      border: 2px solid rgba(255, 255, 255, 0.8);
-      color: #fff;
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-family: inherit;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      transition: transform 0.12s ease, background 0.15s ease;
-    }
-
-    .icon-pill-btn:hover {
-      background: rgba(255, 255, 255, 0.42);
-      transform: translateY(-1px);
-    }
-
-    .icon-pill-btn:active {
-      transform: translateY(1px);
-    }
-
-    /* 遊戲模式與難度選擇區 */
-    .setup-bar {
-      padding: 10px 14px 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .opponent-switch {
-      display: flex;
-      background: #e3f2ff;
-      padding: 4px;
-      border-radius: 16px;
-      border: 2px solid #b8dcff;
-      gap: 4px;
-    }
-
-    .opp-btn {
-      flex: 1;
-      padding: 7px 10px;
-      border: none;
-      border-radius: 12px;
-      background: transparent;
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 800;
-      color: #3572b0;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .opp-btn.active {
-      background: #ffffff;
-      color: #1665c1;
-      box-shadow: 0 2px 6px rgba(33, 130, 230, 0.2);
-    }
-
-    .difficulty-bar {
-      display: flex;
-      gap: 6px;
-      justify-content: center;
-    }
-
-    .diff-btn {
-      flex: 1;
-      padding: 7px 6px;
-      border-radius: 14px;
-      border: 2px solid #cbe4ff;
-      background: #f2f9ff;
-      color: #2965a3;
-      font-family: inherit;
-      font-size: 0.84rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      box-shadow: 0 3px 0 #cbe4ff;
-      line-height: 1.25;
-    }
-
-    .diff-btn:hover {
-      background: #e1f1ff;
-    }
-
-    .diff-btn.active {
-      background: linear-gradient(180deg, #ffd95e 0%, #ffbe2e 100%);
-      border-color: #e59a00;
-      color: #5c3700;
-      box-shadow: 0 3px 0 #d98e00;
-    }
-
-    /* 雙人 MSN 頭像計分板 */
-    .scoreboard-hud {
-      margin: 6px 14px;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .player-card {
-      background: #ffffff;
-      border: 3px solid #d0e7ff;
-      border-radius: 18px;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      transition: all 0.2s ease;
-      position: relative;
-    }
-
-    /* 輪到該玩家時的發光邊框與微放大 */
-    .player-card.p1.active-turn {
-      border-color: var(--p1-color);
-      background: var(--p1-light);
-      box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.22), 0 6px 14px rgba(255, 77, 109, 0.18);
-      transform: translateY(-2px);
-    }
-
-    .player-card.p2.active-turn {
-      border-color: var(--p2-color);
-      background: var(--p2-light);
-      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.22), 0 6px 14px rgba(33, 150, 243, 0.18);
-      transform: translateY(-2px);
-    }
-
-    .player-top-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-    }
-
-    .player-identity {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .msn-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 11px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-      flex-shrink: 0;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
-    }
-
-    .p1 .msn-avatar { background: linear-gradient(135deg, #ff758f, #ff4d6d); }
-    .p2 .msn-avatar { background: linear-gradient(135deg, #64b5f6, #1e88e5); }
-
-    .player-name {
-      font-size: 0.86rem;
-      font-weight: 900;
-      color: #2b4c70;
-      line-height: 1.15;
-    }
-
-    .turn-badge {
-      font-size: 0.72rem;
-      font-weight: 800;
-      padding: 1px 6px;
-      border-radius: 999px;
-      display: inline-block;
-      margin-top: 2px;
-      opacity: 0;
-      transition: opacity 0.15s ease;
-    }
-
-    .active-turn .turn-badge {
-      opacity: 1;
-    }
-
-    .p1 .turn-badge { background: var(--p1-color); color: #fff; }
-    .p2 .turn-badge { background: var(--p2-color); color: #fff; }
-
-    .player-score {
-      font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
-      font-size: 1.55rem;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .p1 .player-score { color: var(--p1-color); }
-    .p2 .player-score { color: var(--p2-color); }
-
-    /* 目標進度條 */
-    .progress-track {
-      width: 100%;
-      height: 8px;
-      background: rgba(0, 0, 0, 0.08);
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      border-radius: 999px;
-      transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    .p1 .progress-fill { background: var(--p1-color); }
-    .p2 .progress-fill { background: var(--p2-color); }
-
-    /* 中央目標與重玩按鈕 */
-    .center-vs-box {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .mascot-reset-btn {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 3px solid #ffae00;
-      background: radial-gradient(circle at 35% 30%, #fff7b2 0%, #ffd43b 65%, #ffb703 100%);
-      box-shadow: 0 3px 0 #d98a00;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.65rem;
-      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    .mascot-reset-btn:hover { transform: scale(1.08); }
-    .mascot-reset-btn:active { transform: scale(0.95) translateY(2px); }
-
-    .target-pill {
-      background: #fff4cc;
-      border: 2px solid #ffd166;
-      border-radius: 999px;
-      padding: 2px 8px;
-      font-size: 0.74rem;
-      font-weight: 900;
-      color: #7a4f00;
-      white-space: nowrap;
-    }
-
-    /* MSN 對話狀態氣泡 */
-    .speech-bubble {
-      margin: 2px 14px 6px;
-      padding: 7px 12px;
-      background: #fff8db;
-      border: 2px dashed #ffca3a;
-      border-radius: 14px;
-      text-align: center;
-      font-size: 0.9rem;
-      font-weight: 800;
-      color: #6e4700;
-      transition: all 0.2s ease;
-    }
-
-    /* 遊戲棋盤外框 */
-    .board-wrapper {
-      padding: 4px 14px 10px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 100%;
-      position: relative;
-    }
-
-    .game-board {
-      display: grid;
-      gap: 4px;
-      background: #c7e7b3;
-      padding: 7px;
-      border-radius: 18px;
-      border: 3px solid #96cf76;
-      box-shadow: inset 0 3px 6px rgba(60, 120, 30, 0.15);
-      width: 100%;
-      max-width: 465px;
-      aspect-ratio: 1 / 1;
-    }
-
-    .game-board.ai-locked {
-      pointer-events: none;
-    }
-
-    /* 單一草地格子 */
-    .cell {
-      position: relative;
-      border: none;
-      border-radius: 8px;
-      background: linear-gradient(180deg, var(--tile-covered-top) 0%, var(--tile-covered-bottom) 100%);
-      box-shadow: 0 2.5px 0 var(--tile-covered-shadow);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
-      font-weight: 700;
-      padding: 0;
-      transition: transform 0.08s ease, background 0.12s ease;
-      aspect-ratio: 1 / 1;
-    }
-
-    .cell:hover:not(.revealed):not(.captured) {
-      background: linear-gradient(180deg, #b3f08d 0%, #86d658 100%);
-      transform: translateY(-1px);
-    }
-
-    .cell:active:not(.revealed):not(.captured) {
-      transform: translateY(2px);
-      box-shadow: 0 1px 0 var(--tile-covered-shadow);
-    }
-
-    /* 已翻開的安全泥土格 (輪到下一位) */
-    .cell.revealed {
-      background: var(--tile-revealed);
-      border: 1.5px solid var(--tile-revealed-border);
-      box-shadow: inset 0 1.5px 3px rgba(180, 150, 100, 0.15);
-      cursor: default;
-      animation: popReveal 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    /* 找到小蜜蜂得分格！(玩家 1 紅旗 / 玩家 2 藍旗) */
-    .cell.captured {
-      cursor: default;
-      animation: bounceCapture 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    .cell.captured-p1 {
-      background: linear-gradient(180deg, #ff8fa3 0%, #ff4d6d 100%);
-      box-shadow: 0 2.5px 0 var(--p1-shadow);
-      color: #fff;
-    }
-
-    .cell.captured-p2 {
-      background: linear-gradient(180deg, #64b5f6 0%, #2196f3 100%);
-      box-shadow: 0 2.5px 0 var(--p2-shadow);
-      color: #fff;
-    }
-
-    @keyframes popReveal {
-      0% { transform: scale(0.75); }
-      100% { transform: scale(1); }
-    }
-
-    @keyframes bounceCapture {
-      0% { transform: scale(0.6) rotate(-10deg); }
-      60% { transform: scale(1.18) rotate(6deg); }
-      100% { transform: scale(1) rotate(0deg); }
-    }
-
-    /* 數字顏色 */
-    .cell[data-num="1"] { color: var(--num-1); }
-    .cell[data-num="2"] { color: var(--num-2); }
-    .cell[data-num="3"] { color: var(--num-3); }
-    .cell[data-num="4"] { color: var(--num-4); }
-    .cell[data-num="5"] { color: var(--num-5); }
-    .cell[data-num="6"] { color: var(--num-6); }
-    .cell[data-num="7"] { color: var(--num-7); }
-    .cell[data-num="8"] { color: var(--num-8); }
-
-    /* 小提示閃亮動畫 (指向一顆小蜜蜂！) */
-    .cell.hint-glow {
-      animation: hintPulse 0.9s ease-in-out infinite;
-      outline: 3px solid #ff9f1c;
-      z-index: 3;
-    }
-
-    @keyframes hintPulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 159, 28, 0.75); }
-      50% { transform: scale(1.1); box-shadow: 0 0 14px 4px rgba(255, 159, 28, 0.9); }
-    }
-
-    /* 得分飄字特效 (+1 連擊！) */
-    .float-score {
-      position: fixed;
-      pointer-events: none;
-      font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
-      font-weight: 900;
-      font-size: 1.25rem;
-      padding: 4px 10px;
-      border-radius: 999px;
-      color: #fff;
-      text-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
-      z-index: 30;
-      animation: floatUpFade 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-    }
-
-    @keyframes floatUpFade {
-      0% { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
-      20% { opacity: 1; transform: translate(-50%, -14px) scale(1.1); }
-      100% { opacity: 0; transform: translate(-50%, -48px) scale(0.95); }
-    }
-
-    /* 底部工具列 (小提示 + 重新開局 + 剩餘蜜蜂數) */
-    .bottom-controls {
-      padding: 6px 14px 14px;
-      display: flex;
-      gap: 8px;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .remaining-badge {
-      background: #eef7ff;
-      border: 2px solid #b8dcff;
-      border-radius: 16px;
-      padding: 9px 12px;
-      font-size: 0.9rem;
-      font-weight: 800;
-      color: #245c96;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    .action-btn {
-      flex: 1;
-      min-width: 115px;
-      padding: 10px 12px;
-      border-radius: 16px;
-      font-family: inherit;
-      font-size: 0.92rem;
-      font-weight: 800;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      transition: transform 0.12s ease;
-    }
-
-    .hint-btn {
-      border: 2px solid #d4a5ff;
-      background: linear-gradient(180deg, #f3e5ff 0%, #e0c2ff 100%);
-      color: #5e239d;
-      box-shadow: 0 3px 0 #b983f0;
-    }
-
-    .restart-btn {
-      border: 2px solid #96e072;
-      background: linear-gradient(180deg, #d8f8c4 0%, #b5ed94 100%);
-      color: #256312;
-      box-shadow: 0 3px 0 #76c04d;
-    }
-
-    .action-btn:hover:not(:disabled) { transform: translateY(-1px); }
-    .action-btn:active:not(:disabled) { transform: translateY(2px); }
-    .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    /* 彈出視窗 (規則說明 & 獲勝慶祝) */
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(25, 65, 110, 0.55);
-      backdrop-filter: blur(3px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      z-index: 50;
-    }
-
-    .modal-backdrop.show {
-      display: flex;
-      animation: fadeIn 0.2s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .modal-card {
-      background: #fffdf7;
-      border: 4px solid #6bb8ff;
-      border-radius: 26px;
-      max-width: 410px;
-      width: 100%;
-      padding: 22px 20px;
-      text-align: center;
-      box-shadow: 0 16px 36px rgba(0, 45, 95, 0.3);
-      animation: popReveal 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    .modal-title {
-      font-size: 1.42rem;
-      font-weight: 900;
-      color: #1f6feb;
-      margin: 0 0 10px;
-    }
-
-    .rule-list {
-      text-align: left;
-      background: #eef7ff;
-      border-radius: 16px;
-      padding: 12px 14px;
-      margin: 12px 0 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      font-size: 0.93rem;
-      color: #2b4c70;
-      line-height: 1.45;
-    }
-
-    .rule-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
-
-    .rule-icon {
-      font-size: 1.35rem;
-      flex-shrink: 0;
-    }
-
-    .primary-modal-btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 16px;
-      background: linear-gradient(180deg, #5cc2ff 0%, #2689e8 100%);
-      color: #fff;
-      font-family: inherit;
-      font-size: 1.06rem;
-      font-weight: 800;
-      cursor: pointer;
-      box-shadow: 0 4px 0 #1864b0;
-    }
-
-    .primary-modal-btn:active {
-      transform: translateY(2px);
-      box-shadow: 0 2px 0 #1864b0;
-    }
-
-    /* 彩帶畫布 */
-    #confetti-canvas {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 40;
-    }
-
-    /* 手機版微調 */
-    @media (max-width: 440px) {
-      .msn-title-text { font-size: 0.96rem; }
-      .player-name { font-size: 0.78rem; }
-      .player-score { font-size: 1.3rem; }
-      .msn-avatar { width: 28px; height: 28px; font-size: 1rem; }
-      .game-board { gap: 3px; padding: 5px; }
-      .diff-btn { font-size: 0.78rem; }
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSN 踩地雷線上對戰版 - Minesweeper Flags</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-  <!-- =====================================================================
-       <!-- === index.html === -->
-       可完整複製此 <body> 結構與 <head> 存為獨立的 index.html 檔案
-       ===================================================================== -->
-  <!-- 漂浮雲朵裝飾 -->
-  <div class="cloud cloud-1"></div>
-  <div class="cloud cloud-2"></div>
-
-  <!-- 過關慶祝彩帶畫布 -->
-  <canvas id="confetti-canvas"></canvas>
-
-  <!-- MSN 經典踩地雷對戰主視窗 -->
-  <main id="msn-window" class="msn-window" role="application" aria-label="MSN 踩地雷對戰版">
-    <!-- 頂部 MSN 藍色標題列 -->
-    <header class="msn-titlebar">
-      <div class="msn-title-left">
-        <div class="msn-buddy-badge" aria-hidden="true">
-          <!-- 經典 MSN 紅藍雙人對戰圖示 -->
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-            <circle cx="11" cy="10" r="5" fill="#FF4D6D"/>
-            <path d="M3 25C3 20 6.5 17 11 17C15.5 17 19 20 19 25" fill="#FF4D6D"/>
-            <circle cx="21" cy="12" r="4.5" fill="#2196F3"/>
-            <path d="M14 26C14 21.5 17 18.5 21 18.5C25 18.5 28 21.5 28 26" fill="#2196F3"/>
-          </svg>
-        </div>
-        <span class="msn-title-text">MSN 踩地雷對戰版 🐝</span>
+  <!-- 登入 / 輸入暱稱視窗 -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="msn-dialog">
+      <div class="msn-titlebar">
+        <span class="msn-logo">🟢</span>
+        <span>MSN Messenger 登入大廳</span>
       </div>
-      <div class="titlebar-actions">
-        <button id="nudge-btn" class="icon-pill-btn" title="傳送 MSN 來電震動給對手！">
-          📳 來電震動
-        </button>
-        <button id="sound-toggle-btn" class="icon-pill-btn" title="開啟或關閉音效">
-          🔊 音效
-        </button>
-        <button id="help-open-btn" class="icon-pill-btn" title="查看對戰規則">
-          ❓ 規則
-        </button>
+      <div class="msn-dialog-body">
+        <div class="avatar-preview" id="avatar-preview">🐶</div>
+        <h2>歡迎來到 MSN 踩地雷搶分戰！</h2>
+        <p class="sub-text">輸入你的可愛暱稱，進入大廳立即配對搶蜜蜂！</p>
+        <input type="text" id="nickname-input" maxlength="12" placeholder="請輸入暱稱（例如：小蜜蜂王）" />
+        <div class="avatar-picker" id="avatar-picker">
+          <button type="button" class="avatar-btn active" data-avatar="🐶">🐶</button>
+          <button type="button" class="avatar-btn" data-avatar="🐱">🐱</button>
+          <button type="button" class="avatar-btn" data-avatar="🐰">🐰</button>
+          <button type="button" class="avatar-btn" data-avatar="🐻">🐻</button>
+          <button type="button" class="avatar-btn" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-btn" data-avatar="🐼">🐼</button>
+        </div>
+        <button type="button" id="btn-enter-lobby" class="btn-primary big-btn">🚀 進入遊戲大廳</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 主視窗容器 -->
+  <div id="app-window" class="msn-window hidden">
+    <!-- MSN 經典標題列 -->
+    <header class="msn-titlebar">
+      <div class="title-left">
+        <span class="msn-buddy-icon">🟢</span>
+        <span class="window-title">MSN 踩地雷對戰版 (Minesweeper Flags)</span>
+      </div>
+      <div class="title-right">
+        <span id="user-badge" class="user-badge">🐶 玩家</span>
+        <button type="button" id="btn-sound" class="icon-btn" title="音效開關">🔊</button>
+        <button type="button" id="btn-rules" class="icon-btn" title="玩法說明">❓</button>
       </div>
     </header>
 
-    <!-- 對戰模式與難度選擇區 -->
-    <section class="setup-bar">
-      <div class="opponent-switch" role="group" aria-label="選擇對戰模式">
-        <button id="mode-ai-btn" class="opp-btn active">🤖 挑戰電腦夥伴</button>
-        <button id="mode-pvp-btn" class="opp-btn">👫 雙人同樂</button>
+    <!-- 模式切換與控制列 -->
+    <div class="control-bar">
+      <div class="mode-group">
+        <button type="button" class="mode-btn active" data-mode="ai">🤖 電腦對戰</button>
+        <button type="button" class="mode-btn" data-mode="local">👫 同機雙人</button>
+        <button type="button" class="mode-btn" data-mode="online">
+          🌐 線上對戰大廳 <span id="lobby-count-badge" class="lobby-badge hidden">0</span>
+        </button>
       </div>
 
-      <div class="difficulty-bar" role="group" aria-label="選擇難度">
-        <button class="diff-btn active" data-level="easy">🌱 快樂入門<br><small>8×8・搶 8 顆</small></button>
-        <button class="diff-btn" data-level="medium">🌼 活力進階<br><small>12×12・搶 15 顆</small></button>
-        <button class="diff-btn" data-level="hard">🏆 經典 MSN<br><small>16×16・搶 26 顆</small></button>
+      <div class="difficulty-group" id="difficulty-group">
+        <select id="difficulty-select">
+          <option value="easy">🌱 快樂入門 (8×8 / 15顆)</option>
+          <option value="medium" selected>🌼 活力進階 (12×12 / 29顆)</option>
+          <option value="hard">🏆 經典 MSN (16×16 / 51顆)</option>
+        </select>
+        <button type="button" id="btn-nudge" class="btn-nudge" title="發送來電震動！">📳 震動對手</button>
       </div>
-    </section>
-
-    <!-- 雙人 MSN 頭像計分板 -->
-    <section class="scoreboard-hud">
-      <!-- 玩家 1 (亮紅色) -->
-      <div id="p1-card" class="player-card p1 active-turn">
-        <div class="player-top-row">
-          <div class="player-identity">
-            <div class="msn-avatar"> red </div>
-            <div>
-              <div id="p1-name" class="player-name">玩家 1</div>
-              <span class="turn-badge">輪到你囉！</span>
-            </div>
-          </div>
-          <div id="p1-score" class="player-score">0</div>
-        </div>
-        <div class="progress-track">
-          <div id="p1-progress" class="progress-fill"></div>
-        </div>
-      </div>
-
-      <!-- 中央目標與笑臉按鈕 -->
-      <div class="center-vs-box">
-        <button id="mascot-btn" class="mascot-reset-btn" title="點我重新開局！">😊</button>
-        <span id="target-badge" class="target-pill">先搶 8 顆勝</span>
-      </div>
-
-      <!-- 玩家 2 / 電腦 (亮藍色) -->
-      <div id="p2-card" class="player-card p2">
-        <div class="player-top-row">
-          <div class="player-identity">
-            <div id="p2-avatar" class="msn-avatar">🤖</div>
-            <div>
-              <div id="p2-name" class="player-name">電腦夥伴</div>
-              <span id="p2-turn-badge" class="turn-badge">思考中...</span>
-            </div>
-          </div>
-          <div id="p2-score" class="player-score">0</div>
-        </div>
-        <div class="progress-track">
-          <div id="p2-progress" class="progress-fill"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 可愛 MSN 狀態提示對話氣泡 -->
-    <div id="speech-bubble" class="speech-bubble">
-      找出藏在草地下的小蜜蜂 🐝！猜中得 1 分還能繼續點喔！
     </div>
 
-    <!-- 遊戲棋盤區域 -->
-    <section class="board-wrapper">
-      <div id="game-board" class="game-board" role="grid"></div>
-    </section>
-
-    <!-- 底部控制列 -->
-    <footer class="bottom-controls">
-      <div class="remaining-badge" title="草地裡還沒被找到的小蜜蜂數量">
-        <span>🐝 還剩</span>
-        <span id="mines-left-count" style="font-family:'Fredoka',sans-serif; font-size:1.1rem;">15</span>
-        <span>顆</span>
-      </div>
-
-      <button id="hint-btn" class="action-btn hint-btn" title="用魔法放大鏡找出 1 顆小蜜蜂">
-        🪄 小提示 (<span id="hint-count">2</span>)
-      </button>
-
-      <button id="restart-btn" class="action-btn restart-btn">
-        🔄 重新開始
-      </button>
-    </footer>
-  </main>
-
-  <!-- 「規則說明」圖解彈窗 -->
-  <div id="help-modal" class="modal-backdrop" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <h2 class="modal-title">🐝 MSN 踩地雷對戰怎麼玩？</h2>
-      <div class="rule-list">
-        <div class="rule-item">
-          <span class="rule-icon">🎯</span>
-          <div><strong>目標是「找地雷」：</strong>和傳統玩法相反！誰先找到越多隻小蜜蜂（地雷）就獲勝！</div>
+    <!-- 線上對戰大廳與房間面板 -->
+    <div id="online-panel" class="online-panel hidden">
+      <!-- 大廳模式：免輸房號直接點選房間加入，或建立新房間 -->
+      <div id="room-lobby-controls" class="lobby-box">
+        <div class="lobby-header">
+          <div class="lobby-title">
+            <span>🏠 線上對戰大廳（點擊房間即可直接進入對戰）</span>
+          </div>
+          <button type="button" id="btn-create-room" class="btn-primary">➕ 建立新房間</button>
         </div>
-        <div class="rule-item">
-          <span class="rule-icon">🔥</span>
-          <div><strong>猜中繼續連擊：</strong>點到小蜜蜂會插上你的專屬旗幟並得 <strong>1 分</strong>，而且<strong>可以繼續點下一格</strong>！</div>
-        </div>
-        <div class="rule-item">
-          <span class="rule-icon">🔢</span>
-          <div><strong>數字是線索：</strong>點到數字或空白沒得分，換對手行動。數字代表「周圍 8 格」藏了幾隻小蜜蜂！</div>
-        </div>
-        <div class="rule-item">
-          <span class="rule-icon">🏆</span>
-          <div><strong>搶先過半獲勝：</strong>先拿到目標分數（8 / 15 / 26 顆）的玩家立刻奪冠！</div>
+        <div id="waiting-rooms-list" class="waiting-rooms-list">
+          <div class="empty-lobby">🔍 目前大廳沒有等待中的房間，按右上角「建立新房間」當房主吧！</div>
         </div>
       </div>
-      <button id="help-close-btn" class="primary-modal-btn">太好玩了，開始搶分！ 🚀</button>
+
+      <!-- 房間內對戰狀態列 -->
+      <div id="room-active-bar" class="room-active-bar hidden">
+        <div class="room-info">
+          <span>🏠 房號：<strong id="display-room-code">------</strong></span>
+          <span id="room-status-text" class="status-pill">⏳ 等待對手從大廳加入...</span>
+        </div>
+        <button type="button" id="btn-leave-room" class="btn-danger mini-btn">🚪 離開房間（返回大廳）</button>
+      </div>
+    </div>
+
+    <!-- 主內容區：左側棋盤 + 右側 MSN 聊天視窗 -->
+    <div class="main-layout">
+      <!-- 左側：計分板與遊戲棋盤 -->
+      <section class="game-section">
+        <div class="scoreboard">
+          <div id="card-p1" class="player-card p1 active-turn">
+            <div class="p-avatar" id="p1-avatar">🐶</div>
+            <div class="p-info">
+              <div class="p-name" id="p1-name">玩家 1</div>
+              <div class="p-sub">紅隊搶分</div>
+            </div>
+            <div class="p-score" id="p1-score">0</div>
+          </div>
+
+          <div class="center-status">
+            <button type="button" id="btn-face" class="face-btn" title="重新開局">😊</button>
+            <div class="mines-left">剩餘 <span id="remaining-mines">29</span> 🐝</div>
+            <div class="win-target">先搶 <span id="target-score">15</span> 顆勝</div>
+          </div>
+
+          <div id="card-p2" class="player-card p2">
+            <div class="p-avatar" id="p2-avatar">🤖</div>
+            <div class="p-info">
+              <div class="p-name" id="p2-name">聰明電腦</div>
+              <div class="p-sub">藍隊搶分</div>
+            </div>
+            <div class="p-score" id="p2-score">0</div>
+          </div>
+        </div>
+
+        <!-- 回合提示橫幅 -->
+        <div id="turn-banner" class="turn-banner p1-banner">輪到你進攻！點擊草地尋找小蜜蜂 🐝</div>
+
+        <!-- 棋盤容器 -->
+        <div class="board-wrapper">
+          <div id="board" class="board"></div>
+          <div id="fx-layer" class="fx-layer"></div>
+        </div>
+
+        <!-- 底部道具列 -->
+        <div class="bottom-tools">
+          <button type="button" id="btn-hint" class="btn-hint">🪄 魔法放大鏡 (<span id="hint-count">2</span>)</button>
+          <button type="button" id="btn-restart" class="btn-secondary">🔄 重新一局</button>
+        </div>
+      </section>
+
+      <!-- 右側：經典 MSN 即時聊天框 -->
+      <aside class="chat-section">
+        <div class="chat-header">
+          <span>💬 MSN 即時對話框</span>
+          <span class="chat-tip" id="chat-mode-label">單機互動模式</span>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+          <div class="sys-msg">歡迎進入 MSN 踩地雷對戰！搶先找到過半數小蜜蜂的人獲勝！</div>
+        </div>
+        <!-- 快捷貼圖列 -->
+        <div class="quick-stickers">
+          <button type="button" class="sticker-btn" data-text="加油加油！🔥">🔥</button>
+          <button type="button" class="sticker-btn" data-text="太神啦！連擊好強！👏">👏</button>
+          <button type="button" class="sticker-btn" data-text="這格一定有蜜蜂！🐝">🐝</button>
+          <button type="button" class="sticker-btn" data-text="哈哈被我搶走啦！😝">😝</button>
+          <button type="button" class="sticker-btn" data-text="快點快點～別睡著囉！⏰">⏰</button>
+        </div>
+        <form id="chat-form" class="chat-input-box">
+          <input type="text" id="chat-input" maxlength="80" placeholder="輸入訊息與對手聊天..." autocomplete="off" />
+          <button type="submit" class="btn-send">傳送</button>
+        </form>
+      </aside>
     </div>
   </div>
 
-  <!-- 獲勝慶祝彈窗 -->
-  <div id="win-modal" class="modal-backdrop" role="dialog" aria-modal="true">
-    <div class="modal-card">
-      <div id="win-trophy" style="font-size: 3.4rem; margin-bottom: 6px;">🏆🎉</div>
-      <h2 id="win-title" class="modal-title">玩家 1 獲勝啦！</h2>
-      <p id="win-summary" style="color: #3a5c82; font-weight: 800; font-size: 1.05rem; margin: 8px 0 18px;">
-        以 8 : 4 搶先找到所有目標小蜜蜂！
-      </p>
-      <button id="play-again-btn" class="primary-modal-btn">再對戰一局 🐝</button>
+  <!-- 對手離開房間通知彈窗 -->
+  <div id="leave-notice-modal" class="modal-overlay hidden">
+    <div class="msn-dialog">
+      <div class="msn-titlebar">
+        <span>📢 房間連線通知</span>
+      </div>
+      <div class="msn-dialog-body">
+        <div class="result-emoji">👋</div>
+        <h2 id="leave-notice-title">對手已經離開房間</h2>
+        <p id="leave-notice-desc" class="sub-text">系統已為您自動返回線上大廳，您可以重新建立或加入其他房間！</p>
+        <button type="button" id="btn-confirm-leave-notice" class="btn-primary big-btn">返回線上大廳</button>
+      </div>
     </div>
   </div>
 
-  <!-- =====================================================================
-       // === script.js ===
-       可完整複製此 <script> 內容存為獨立的 script.js 檔案
-       ===================================================================== -->
-  <script>
-    // === 1. 經典 MSN 踩地雷對戰難度設定 (奇數顆地雷，絕無平手) ===
-    const LEVELS = {
-      easy:   { rows: 8,  cols: 8,  mines: 15, winTarget: 8,  label: '快樂入門' },
-      medium: { rows: 12, cols: 12, mines: 29, winTarget: 15, label: '活力進階' },
-      hard:   { rows: 16, cols: 16, mines: 51, winTarget: 26, label: '經典 MSN' }
-    };
-
-    // === 2. 遊戲核心狀態變數 ===
-    let currentLevel = 'easy';
-    let vsAI = true; // true = 挑戰電腦夥伴, false = 雙人同樂
-    let rows = 8;
-    let cols = 8;
-    let totalMines = 15;
-    let winTarget = 8;
-
-    let board = [];
-    let currentTurn = 1; // 1 = 玩家1 (亮紅), 2 = 電腦或玩家2 (亮藍)
-    let scores = { 1: 0, 2: 0 };
-    let minesFoundTotal = 0;
-    let isGameOver = false;
-    let hintsRemaining = 2;
-    let aiTimeoutId = null;
-    let soundEnabled = true;
-
-    // === 3. DOM 元素快取 ===
-    const msnWindow = document.getElementById('msn-window');
-    const boardEl = document.getElementById('game-board');
-    const minesLeftEl = document.getElementById('mines-left-count');
-    const targetBadgeEl = document.getElementById('target-badge');
-    const mascotBtn = document.getElementById('mascot-btn');
-    const speechEl = document.getElementById('speech-bubble');
-
-    const p1Card = document.getElementById('p1-card');
-    const p2Card = document.getElementById('p2-card');
-    const p1ScoreEl = document.getElementById('p1-score');
-    const p2ScoreEl = document.getElementById('p2-score');
-    const p1ProgressEl = document.getElementById('p1-progress');
-    const p2ProgressEl = document.getElementById('p2-progress');
-    const p2AvatarEl = document.getElementById('p2-avatar');
-    const p2NameEl = document.getElementById('p2-name');
-    const p2TurnBadgeEl = document.getElementById('p2-turn-badge');
-
-    const hintBtn = document.getElementById('hint-btn');
-    const hintCountEl = document.getElementById('hint-count');
-    const soundToggleBtn = document.getElementById('sound-toggle-btn');
-
-    const helpModal = document.getElementById('help-modal');
-    const winModal = document.getElementById('win-modal');
-    const winTitleEl = document.getElementById('win-title');
-    const winSummaryEl = document.getElementById('win-summary');
-
-    // 修正玩家 1 頭像圖示
-    document.querySelector('.p1 .msn-avatar').textContent = '🦊';
-
-    // === 4. Web Audio API 可愛音效合成器 (無需外部音檔) ===
-    let audioCtx = null;
-
-    function playSound(type, comboCount = 1) {
-      if (!soundEnabled) return;
-      try {
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-
-        const now = audioCtx.currentTime;
-
-        if (type === 'reveal') {
-          // 翻開安全草地的輕快泡泡「波」聲
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sine';
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.frequency.setValueAtTime(340, now);
-          osc.frequency.exponentialRampToValueAtTime(560, now + 0.08);
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-          osc.start(now);
-          osc.stop(now + 0.08);
-        } else if (type === 'score') {
-          // 猜中地雷得分！音高隨連擊次數上升
-          const baseFreq = 523.25 * Math.pow(1.08, Math.min(comboCount - 1, 6));
-          const notes = [baseFreq, baseFreq * 1.25];
-          notes.forEach((f, i) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'triangle';
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            const t = now + i * 0.07;
-            osc.frequency.setValueAtTime(f, t);
-            gain.gain.setValueAtTime(0.22, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
-            osc.start(t);
-            osc.stop(t + 0.18);
-          });
-        } else if (type === 'hint') {
-          // 魔法放大鏡閃亮音
-          const osc = audioCtx.createOscillator();
-          const gain = audioCtx.createGain();
-          osc.type = 'sine';
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          osc.frequency.setValueAtTime(620, now);
-          osc.frequency.exponentialRampToValueAtTime(1240, now + 0.24);
-          gain.gain.setValueAtTime(0.16, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
-          osc.start(now);
-          osc.stop(now + 0.24);
-        } else if (type === 'nudge') {
-          // 經典 MSN 來電震動低頻嗡嗡聲
-          for (let i = 0; i < 4; i++) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            const t = now + i * 0.09;
-            osc.frequency.setValueAtTime(135, t);
-            osc.frequency.linearRampToValueAtTime(95, t + 0.07);
-            gain.gain.setValueAtTime(0.16, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
-            osc.start(t);
-            osc.stop(t + 0.08);
-          }
-        } else if (type === 'win') {
-          // 勝利號角旋律
-          const melody = [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50];
-          melody.forEach((freq, idx) => {
-            const o = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            o.type = 'triangle';
-            o.connect(g);
-            g.connect(audioCtx.destination);
-            const t = now + idx * 0.1;
-            o.frequency.setValueAtTime(freq, t);
-            g.gain.setValueAtTime(0.2, t);
-            g.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
-            o.start(t);
-            o.stop(t + 0.22);
-          });
-        }
-      } catch (e) {
-        // 忽略瀏覽器音效自動播放限制
-      }
-    }
-
-    // === 5. 初始化與重新開局 ===
-    let streakCount = 0; // 連續猜中次數
-
-    function initGame(levelKey = currentLevel) {
-      currentLevel = levelKey;
-      const cfg = LEVELS[levelKey];
-      rows = cfg.rows;
-      cols = cfg.cols;
-      totalMines = cfg.mines;
-      winTarget = cfg.winTarget;
-
-      if (aiTimeoutId) {
-        clearTimeout(aiTimeoutId);
-        aiTimeoutId = null;
-      }
-
-      currentTurn = 1;
-      scores = { 1: 0, 2: 0 };
-      minesFoundTotal = 0;
-      streakCount = 0;
-      isGameOver = false;
-      hintsRemaining = 2;
-
-      stopConfetti();
-      boardEl.classList.remove('ai-locked');
-
-      // 更新對手顯示名稱與頭像
-      p2AvatarEl.textContent = vsAI ? '🤖' : '🐰';
-      p2NameEl.textContent = vsAI ? '電腦夥伴' : '玩家 2';
-      p2TurnBadgeEl.textContent = vsAI ? '思考中...' : '輪到你囉！';
-
-      targetBadgeEl.textContent = `先搶 ${winTarget} 顆勝`;
-      hintCountEl.textContent = hintsRemaining;
-      hintBtn.disabled = false;
-
-      updateScoreboardUI();
-      setMascot('😊', `輪到玩家 1！快找出藏在草地下的小蜜蜂 🐝`);
-
-      // 建立棋盤格子與隨機放置地雷
-      createBoardAndMines();
-    }
-
-    function createBoardAndMines() {
-      board = [];
-      boardEl.innerHTML = '';
-      boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      boardEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
-
-      // 依據棋盤大小自動調整數字與圖示字體
-      const fontSize = cols <= 8 ? '1.3rem' : cols <= 12 ? '1.02rem' : '0.82rem';
-
-      for (let r = 0; r < rows; r++) {
-        const rowArr = [];
-        for (let c = 0; c < cols; c++) {
-          const cellBtn = document.createElement('button');
-          cellBtn.className = 'cell';
-          cellBtn.style.fontSize = fontSize;
-          cellBtn.dataset.row = r;
-          cellBtn.dataset.col = c;
-          cellBtn.setAttribute('aria-label', `第 ${r + 1} 列第 ${c + 1} 格`);
-
-          cellBtn.addEventListener('click', () => {
-            // 若目前是電腦回合，禁止人類玩家代點
-            if (vsAI && currentTurn === 2) return;
-            handleCellClick(r, c);
-          });
-
-          boardEl.appendChild(cellBtn);
-          rowArr.push({
-            row: r,
-            col: c,
-            isMine: false,
-            isRevealed: false,
-            capturedBy: 0, // 0 = 未被捕獲, 1 = 玩家1, 2 = 玩家2/電腦
-            neighborMines: 0,
-            el: cellBtn
-          });
-        }
-        board.push(rowArr);
-      }
-
-      // 隨機放置奇數顆小蜜蜂 (地雷)
-      let placed = 0;
-      while (placed < totalMines) {
-        const r = Math.floor(Math.random() * rows);
-        const c = Math.floor(Math.random() * cols);
-        if (!board[r][c].isMine) {
-          board[r][c].isMine = true;
-          placed++;
-        }
-      }
-
-      // 計算每個安全格周圍的地雷數
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (!board[r][c].isMine) {
-            let count = 0;
-            forEachNeighbor(r, c, (nr, nc) => {
-              if (board[nr][nc].isMine) count++;
-            });
-            board[r][c].neighborMines = count;
-          }
-        }
-      }
-    }
-
-    function forEachNeighbor(r, c, callback) {
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-          const nr = r + dr;
-          const nc = c + dc;
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-            callback(nr, nc);
-          }
-        }
-      }
-    }
-
-    // === 6. 核心對戰點擊邏輯 ===
-    function handleCellClick(r, c) {
-      if (isGameOver) return;
-      const cell = board[r][c];
-
-      // 已翻開或已被插旗的格子不能再點
-      if (cell.isRevealed || cell.capturedBy !== 0) return;
-
-      cell.el.classList.remove('hint-glow');
-
-      // 情況 A：猜中地雷（找到小蜜蜂 🐝）！得 1 分並獲得額外連擊回合！
-      if (cell.isMine) {
-        cell.capturedBy = currentTurn;
-        scores[currentTurn]++;
-        minesFoundTotal++;
-        streakCount++;
-
-        cell.el.classList.add('captured', currentTurn === 1 ? 'captured-p1' : 'captured-p2');
-        cell.el.innerHTML = currentTurn === 1 ? '🚩' : '🏴';
-        // 顯示小蜜蜂與旗幟組合讓小朋友更有成就感
-        cell.el.textContent = '🐝';
-
-        playSound('score', streakCount);
-        spawnFloatingScore(cell.el, currentTurn, streakCount);
-        updateScoreboardUI();
-
-        const actorName = getPlayerLabel(currentTurn);
-        const comboText = streakCount >= 2 ? `（🔥 ${streakCount} 連擊！）` : '';
-        setMascot('🤩', `太神啦！${actorName} 找到小蜜蜂 +1 分${comboText}，請繼續點下一格！`);
-
-        // 檢查是否已達到過半勝利分數
-        if (scores[currentTurn] >= winTarget) {
-          declareWinner(currentTurn);
-          return;
-        }
-
-        // 若是電腦猜中且尚未獲勝，電腦繼續思考下一格！
-        if (vsAI && currentTurn === 2 && !isGameOver) {
-          scheduleAITurn();
-        }
-        return;
-      }
-
-      // 情況 B：點到安全格（數字或空白）-> 翻開格子並結束回合，換對手！
-      streakCount = 0;
-      playSound('reveal');
-      revealSafeArea(r, c);
-
-      // 切換回合
-      switchTurn();
-    }
-
-    // 遞迴展開 0 空白安全區域
-    function revealSafeArea(r, c) {
-      const cell = board[r][c];
-      if (cell.isRevealed || cell.capturedBy !== 0 || cell.isMine) return;
-
-      cell.isRevealed = true;
-      cell.el.classList.add('revealed');
-      cell.el.classList.remove('hint-glow');
-
-      if (cell.neighborMines > 0) {
-        cell.el.textContent = cell.neighborMines;
-        cell.el.dataset.num = cell.neighborMines;
-      } else {
-        forEachNeighbor(r, c, (nr, nc) => {
-          revealSafeArea(nr, nc);
-        });
-      }
-    }
-
-    function switchTurn() {
-      currentTurn = currentTurn === 1 ? 2 : 1;
-      updateScoreboardUI();
-
-      const nextName = getPlayerLabel(currentTurn);
-      if (vsAI && currentTurn === 2) {
-        setMascot('🤔', '換電腦夥伴思考中，看看牠會找哪一格...');
-        boardEl.classList.add('ai-locked');
-        scheduleAITurn();
-      } else {
-        boardEl.classList.remove('ai-locked');
-        setMascot('😊', `沒找到小蜜蜂～現在輪到「${nextName}」行動囉！`);
-      }
-    }
-
-    // === 7. 聰明又可愛的電腦 AI 邏輯 ===
-    function scheduleAITurn() {
-      if (aiTimeoutId) clearTimeout(aiTimeoutId);
-      boardEl.classList.add('ai-locked');
-
-      aiTimeoutId = setTimeout(() => {
-        if (isGameOver || currentTurn !== 2) return;
-        const target = chooseAIMove();
-        if (target) {
-          handleCellClick(target.row, target.col);
-        }
-      }, 680);
-    }
-
-    function chooseAIMove() {
-      // 1. 邏輯推理：掃描所有已翻開的數字格
-      // 如果「周圍未開格數 + 周圍已被捕獲蜜蜂數 === 該格數字」，代表周圍剩下的未開格 100% 全是小蜜蜂！
-      const certainMines = [];
-      const candidateCells = [];
-
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = board[r][c];
-          if (!cell.isRevealed && cell.capturedBy === 0) {
-            candidateCells.push(cell);
-          }
-
-          if (cell.isRevealed && cell.neighborMines > 0) {
-            let capturedCount = 0;
-            const hiddenNeighbors = [];
-
-            forEachNeighbor(r, c, (nr, nc) => {
-              const nCell = board[nr][nc];
-              if (nCell.capturedBy !== 0) {
-                capturedCount++;
-              } else if (!nCell.isRevealed) {
-                hiddenNeighbors.push(nCell);
-              }
-            });
-
-            if (hiddenNeighbors.length > 0 && capturedCount + hiddenNeighbors.length === cell.neighborMines) {
-              hiddenNeighbors.forEach((h) => {
-                if (!certainMines.includes(h)) certainMines.push(h);
-              });
-            }
-          }
-        }
-      }
-
-      // 85% 機率使用聰明推理直接抓出 100% 確定的小蜜蜂；15% 保留童趣失誤讓小朋友有機會反超
-      if (certainMines.length > 0 && Math.random() < 0.85) {
-        return certainMines[Math.floor(Math.random() * certainMines.length)];
-      }
-
-      // 2. 若無確定推理目標，優先挑選「緊鄰已翻開數字」的未知格子（較像真人思考）
-      const frontierCells = candidateCells.filter((cell) => {
-        let nearNumber = false;
-        forEachNeighbor(cell.row, cell.col, (nr, nc) => {
-          if (board[nr][nc].isRevealed && board[nr][nc].neighborMines > 0) {
-            nearNumber = true;
-          }
-        });
-        return nearNumber;
-      });
-
-      const pool = frontierCells.length > 0 ? frontierCells : candidateCells;
-      if (pool.length === 0) return null;
-      return pool[Math.floor(Math.random() * pool.length)];
-    }
-
-    // === 8. 魔法放大鏡小提示 (指出一顆還沒被找到的小蜜蜂) ===
-    function useHint() {
-      if (isGameOver || hintsRemaining <= 0) return;
-      if (vsAI && currentTurn === 2) return;
-
-      const hiddenMines = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = board[r][c];
-          if (cell.isMine && cell.capturedBy === 0) {
-            hiddenMines.push(cell);
-          }
-        }
-      }
-
-      if (hiddenMines.length === 0) return;
-
-      const chosen = hiddenMines[Math.floor(Math.random() * hiddenMines.length)];
-      chosen.el.classList.add('hint-glow');
-      hintsRemaining--;
-      hintCountEl.textContent = hintsRemaining;
-      if (hintsRemaining <= 0) {
-        hintBtn.disabled = true;
-      }
-
-      playSound('hint');
-      setMascot('🪄', '魔法放大鏡發現一隻躲起來的小蜜蜂囉（閃亮亮那格）！快點牠得分！');
-    }
-
-    // === 9. 勝利結算與 UI 更新 ===
-    function declareWinner(winnerId) {
-      isGameOver = true;
-      boardEl.classList.remove('ai-locked');
-      if (aiTimeoutId) clearTimeout(aiTimeoutId);
-
-      // 揭曉所有還沒被找到的小蜜蜂位置
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cell = board[r][c];
-          if (cell.isMine && cell.capturedBy === 0) {
-            cell.el.classList.add('revealed');
-            cell.el.style.opacity = '0.65';
-            cell.el.textContent = '🐝';
-          }
-        }
-      }
-
-      const winnerName = getPlayerLabel(winnerId);
-      playSound('win');
-      setMascot('🥳', `恭喜「${winnerName}」率先搶到 ${winTarget} 顆小蜜蜂獲得勝利！`);
-      startConfetti();
-
-      winTitleEl.textContent = `🎉 ${winnerName} 獲勝啦！`;
-      winSummaryEl.textContent = `最終比數 ${scores[1]} : ${scores[2]}，率先找到 ${winTarget} 隻小蜜蜂！`;
-      setTimeout(() => winModal.classList.add('show'), 550);
-    }
-
-    function updateScoreboardUI() {
-      p1ScoreEl.textContent = scores[1];
-      p2ScoreEl.textContent = scores[2];
-
-      p1ProgressEl.style.width = `${Math.min(100, (scores[1] / winTarget) * 100)}%`;
-      p2ProgressEl.style.width = `${Math.min(100, (scores[2] / winTarget) * 100)}%`;
-
-      p1Card.classList.toggle('active-turn', currentTurn === 1 && !isGameOver);
-      p2Card.classList.toggle('active-turn', currentTurn === 2 && !isGameOver);
-
-      const remaining = Math.max(0, totalMines - minesFoundTotal);
-      minesLeftEl.textContent = remaining;
-    }
-
-    function getPlayerLabel(playerId) {
-      if (playerId === 1) return '玩家 1';
-      return vsAI ? '電腦夥伴' : '玩家 2';
-    }
-
-    function setMascot(emoji, msg) {
-      mascotBtn.textContent = emoji;
-      speechEl.textContent = msg;
-    }
-
-    // 得分飄字特效
-    function spawnFloatingScore(targetEl, playerId, combo) {
-      const rect = targetEl.getBoundingClientRect();
-      const badge = document.createElement('div');
-      badge.className = 'float-score';
-      badge.style.left = `${rect.left + rect.width / 2}px`;
-      badge.style.top = `${rect.top}px`;
-      badge.style.background = playerId === 1 ? 'var(--p1-color)' : 'var(--p2-color)';
-      badge.textContent = combo >= 2 ? `+1 連擊 x${combo}!` : '+1 分 🐝';
-      document.body.appendChild(badge);
-      setTimeout(() => badge.remove(), 920);
-    }
-
-    // === 10. MSN 經典「來電震動 (Nudge)」功能 ===
-    function triggerNudge() {
-      msnWindow.classList.remove('nudging');
-      void msnWindow.offsetWidth; // 強制重啟動畫
-      msnWindow.classList.add('nudging');
-      playSound('nudge');
-      setMascot('📳', '嗡嗡嗡～你傳送了一個 MSN 來電震動給對手！');
-    }
-
-    // === 11. 過關彩帶慶祝動畫 ===
-    const confettiCanvas = document.getElementById('confetti-canvas');
-    const ctx = confettiCanvas.getContext('2d');
-    let confettiParticles = [];
-    let confettiAnimId = null;
-
-    function startConfetti() {
-      confettiCanvas.width = window.innerWidth;
-      confettiCanvas.height = window.innerHeight;
-      const colors = ['#ff4d6d', '#2196f3', '#ffca3a', '#8ac926', '#ff99c8', '#a0c4ff'];
-      confettiParticles = Array.from({ length: 100 }, () => ({
-        x: Math.random() * confettiCanvas.width,
-        y: Math.random() * -confettiCanvas.height,
-        size: Math.random() * 8 + 6,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        speedY: Math.random() * 3 + 2.2,
-        speedX: (Math.random() - 0.5) * 2.5,
-        rotation: Math.random() * 360,
-        rotSpeed: (Math.random() - 0.5) * 8
-      }));
-
-      function renderConfetti() {
-        ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-        confettiParticles.forEach((p) => {
-          p.y += p.speedY;
-          p.x += p.speedX;
-          p.rotation += p.rotSpeed;
-          if (p.y > confettiCanvas.height) {
-            p.y = -15;
-            p.x = Math.random() * confettiCanvas.width;
-          }
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate((p.rotation * Math.PI) / 180);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
-          ctx.restore();
-        });
-        confettiAnimId = requestAnimationFrame(renderConfetti);
-      }
-      renderConfetti();
-    }
-
-    function stopConfetti() {
-      if (confettiAnimId) {
-        cancelAnimationFrame(confettiAnimId);
-        confettiAnimId = null;
-      }
-      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-    }
-
-    // === 12. 綁定所有介面互動事件 ===
-    document.getElementById('mode-ai-btn').addEventListener('click', (e) => {
-      vsAI = true;
-      e.target.classList.add('active');
-      document.getElementById('mode-pvp-btn').classList.remove('active');
-      playSound('reveal');
-      initGame(currentLevel);
-    });
-
-    document.getElementById('mode-pvp-btn').addEventListener('click', (e) => {
-      vsAI = false;
-      e.target.classList.add('active');
-      document.getElementById('mode-ai-btn').classList.remove('active');
-      playSound('reveal');
-      initGame(currentLevel);
-    });
-
-    document.querySelectorAll('.diff-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.diff-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        playSound('reveal');
-        initGame(btn.dataset.level);
-      });
-    });
-
-    mascotBtn.addEventListener('click', () => {
-      playSound('reveal');
-      initGame(currentLevel);
-    });
-
-    document.getElementById('restart-btn').addEventListener('click', () => {
-      playSound('reveal');
-      initGame(currentLevel);
-    });
-
-    document.getElementById('nudge-btn').addEventListener('click', triggerNudge);
-    hintBtn.addEventListener('click', useHint);
-
-    soundToggleBtn.addEventListener('click', () => {
-      soundEnabled = !soundEnabled;
-      soundToggleBtn.textContent = soundEnabled ? '🔊 音效' : '🔇 靜音';
-      if (soundEnabled) playSound('score', 1);
-    });
-
-    document.getElementById('help-open-btn').addEventListener('click', () => {
-      helpModal.classList.add('show');
-    });
-    document.getElementById('help-close-btn').addEventListener('click', () => {
-      helpModal.classList.remove('show');
-    });
-    document.getElementById('play-again-btn').addEventListener('click', () => {
-      winModal.classList.remove('show');
-      initGame(currentLevel);
-    });
-
-    // 視窗載入後啟動遊戲
-    window.addEventListener('load', () => {
-      initGame('easy');
-    });
-  </script>
+  <!-- 勝負結算彈窗 -->
+  <div id="result-modal" class="modal-overlay hidden">
+    <div class="msn-dialog result-dialog">
+      <div class="msn-titlebar">
+        <span>🏆 對戰結果出爐！</span>
+      </div>
+      <div class="msn-dialog-body">
+        <div id="result-emoji" class="result-emoji">🥳</div>
+        <h2 id="result-title">恭喜獲勝！</h2>
+        <p id="result-detail" class="result-detail">紅隊 15 顆 VS 藍隊 11 顆</p>
+        <button type="button" id="btn-play-again" class="btn-primary big-btn">⚡ 再戰一局</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 規則說明彈窗 -->
+  <div id="rules-modal" class="modal-overlay hidden">
+    <div class="msn-dialog">
+      <div class="msn-titlebar">
+        <span>📖 MSN 踩地雷對戰規則</span>
+      </div>
+      <div class="msn-dialog-body rules-body">
+        <ul>
+          <li>🎯 <strong>搶分獲勝：</strong>這不是避開地雷，而是要<strong>主動把小蜜蜂找出來</strong>！先搶到過半數小蜜蜂的玩家獲勝。</li>
+          <li>⚡ <strong>連擊獎勵：</strong>點中小蜜蜂得 1 分，而且<strong>可以繼續連續點擊下一格</strong>，直到沒猜中才換對手！</li>
+          <li>🔢 <strong>數字線索：</strong>點到安全草地會顯示周圍 8 格有幾隻小蜜蜂，根據數字推理位置並換對手進攻。</li>
+          <li>📳 <strong>MSN 彩蛋：</strong>隨時可以點擊「震動對手」或傳送貼圖跟對方互動喔！</li>
+        </ul>
+        <button type="button" id="btn-close-rules" class="btn-primary">我知道了！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
