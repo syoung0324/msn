@@ -635,7 +635,7 @@ function listenToLobbyChat() {
   }
 
   el.chatMessages.innerHTML = "";
-  appendSystemMsg("📢 已連線至 MSN 線上大廳公開聊天室，所有大廳玩家都能看到彼此的訊息！");
+  appendSystemMsg("📢 已連線至線上大廳公開聊天室，所有大廳玩家都能看到彼此的訊息！");
 
   let isInitialSnapshot = true;
   state.unsubLobbyChat = db
@@ -1584,7 +1584,7 @@ function triggerWindowShake() {
 }
 
 // ==========================================
-// 13. 聊天室與按鈕事件綁定
+// 13. LINE 風格聊天室與按鈕事件綁定
 // ==========================================
 function appendSystemMsg(text) {
   const div = document.createElement("div");
@@ -1595,10 +1595,27 @@ function appendSystemMsg(text) {
 }
 
 function appendChatBubble(name, avatar, text, isMe) {
-  const div = document.createElement("div");
-  div.className = `chat-bubble ${isMe ? "me" : "other"}`;
-  div.innerHTML = `<div class="sender">${renderAvatarHtml(avatar, "chat-sender-img")} ${escapeHtml(name)}</div><div>${escapeHtml(text)}</div>`;
-  el.chatMessages.appendChild(div);
+  const row = document.createElement("div");
+  row.className = `chat-row ${isMe ? "me" : "other"}`;
+
+  if (isMe) {
+    row.innerHTML = `
+      <div class="chat-content-col">
+        <div class="chat-sender-name">${escapeHtml(name)}</div>
+        <div class="chat-bubble me">${escapeHtml(text)}</div>
+      </div>
+    `;
+  } else {
+    row.innerHTML = `
+      <div class="chat-avatar">${renderAvatarHtml(avatar)}</div>
+      <div class="chat-content-col">
+        <div class="chat-sender-name">${escapeHtml(name)}</div>
+        <div class="chat-bubble other">${escapeHtml(text)}</div>
+      </div>
+    `;
+  }
+
+  el.chatMessages.appendChild(row);
   el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
 }
 
