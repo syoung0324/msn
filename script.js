@@ -195,6 +195,7 @@ const state = {
   roomId: null,
   myRole: 1,
   roomStatus: "waiting",
+  waitingRestartAck: false,
   pendingModeSwitch: null,
   unsubLobby: null,
   unsubRoom: null,
@@ -613,7 +614,11 @@ function checkWinCondition() {
     el.resultEmoji.textContent = p1Win ? state.p1Info.avatar : state.p2Info.avatar;
     el.resultTitle.textContent = `🎉 ${winnerName} 獲得勝利！`;
     el.resultDetail.textContent = `${state.p1Info.name} ${state.scores[1]} 顆 🐝  VS  ${state.p2Info.name} ${state.scores[2]} 顆 🐝`;
-    el.resultModal.classList.remove("hidden");
+
+    // 若已按下請求重開正在等對方確認，不再重複跳出結算視窗
+    if (!state.waitingRestartAck) {
+      el.resultModal.classList.remove("hidden");
+    }
   }
 }
 
@@ -634,7 +639,8 @@ function isActivelyPlayingOnline() {
     state.mode === "online" &&
     Boolean(state.roomId) &&
     state.roomStatus === "playing" &&
-    state.p2Info.avatar !== "⏳"
+    state.p2Info.avatar !== "⏳" &&
+    !state.gameOver
   );
 }
 
@@ -673,6 +679,7 @@ async function createOnlineRoom() {
     state.roomId = roomId;
     state.myRole = 1;
     state.roomStatus = "waiting";
+    state.waitingRestartAck = false;
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
     await sendOnlineChatMessage(`我建立了房間 #${roomId}，正在大廳等待對手加入！🐝`, true);
@@ -702,6 +709,7 @@ async function joinOnlineRoomById(roomId) {
     state.roomId = roomId;
     state.myRole = 2;
     state.roomStatus = "playing";
+    state.waitingRestartAck = false;
 
     await docRef.update({
       p2: { uid: state.user.uid, name: state.user.name, avatar: state.user.avatar },
@@ -735,6 +743,7 @@ function returnToLobbyUI() {
   el.confirmLeaveModal.classList.add("hidden");
   el.chatModeLabel.textContent = "線上對戰大廳";
   state.roomStatus = "waiting";
+  state.waitingRestartAck = false;
   startNewLocalGame();
 }
 
@@ -770,7 +779,6 @@ function listenToRoom(roomId) {
     state.p1Info = data.p1 || { name: "房主", avatar: "🐶" };
     state.p2Info = data.p2 || { name: "等待對手加入...", avatar: "⏳" };
 
-    // 同步難度下拉選單顯示
     const diffSelect = document.getElementById("difficulty-select");
     if (diffSelect && diffSelect.value !== data.difficulty) {
       diffSelect.value = data.difficulty;
@@ -792,17 +800,22 @@ function listenToRoom(roomId) {
 
     // 處理對手發送的「重新開局請求」
     const req = data.restartRequest;
-    if (req && req.status === "pending" && req.fromUid !== state.user.uid) {
-      if (state.lastRestartReqId !== req.id) {
-        state.lastRestartReqId = req.id;
-        const diffName = DIFFICULTIES[req.difficulty]?.label || "目前難度";
-        el.restartReqTitle.textContent = `🔄 ${req.fromName} 希望重新開局`;
-        el.restartReqDesc.textContent = `難度：【${diffName}】，是否同意結束目前盤面並重新開始一局？`;
-        el.restartRequestModal.classList.remove("hidden");
-        sfx.playIcqUhOh();
+    if (req && req.status === "pending") {
+      if (req.fromUid !== state.user.uid) {
+        // 先隱藏可能開著的結算視窗，避免遮住確認重開視窗
+        el.resultModal.classList.add("hidden");
+        if (state.lastRestartReqId !== req.id) {
+          state.lastRestartReqId = req.id;
+          const diffName = DIFFICULTIES[req.difficulty]?.label || "目前難度";
+          el.restartReqTitle.textContent = `🔄 ${req.fromName} 希望重新開局`;
+          el.restartReqDesc.textContent = `難度：【${diffName}】，是否同意結束目前盤面並重新開始一局？`;
+          el.restartRequestModal.classList.remove("hidden");
+          sfx.playIcqUhOh();
+        }
       }
     } else {
       el.restartRequestModal.classList.add("hidden");
+      state.waitingRestartAck = false;
     }
 
     state.gameOver = false;
@@ -831,15 +844,21 @@ function listenToRoom(roomId) {
     });
 }
 
-// 線上對戰發送「重新開局請求」給對手
+// 線上對戰發送「重新開局請求」給對手（立即關閉結算視窗）
 async function requestOnlineRestart(targetDifficulty = state.difficulty) {
   if (!db || !state.roomId) return;
+
+  // 立即關閉結算視窗，避免畫面卡住
+  el.resultModal.classList.add("hidden");
 
   // 若房間還在等待對手加入，房主可直接重洗棋盤
   if (state.p2Info.avatar === "⏳") {
     await executeOnlineRoomReset(targetDifficulty);
     return;
   }
+
+  state.waitingRestartAck = true;
+  el.turnBanner.textContent = "⏳ 已送出重新開局請求，等待對手同意中...";
 
   const reqId = "req_" + Date.now();
   await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
@@ -859,6 +878,10 @@ async function executeOnlineRoomReset(targetDifficulty = state.difficulty) {
   if (!db || !state.roomId) return;
   const cfg = DIFFICULTIES[targetDifficulty] || DIFFICULTIES.medium;
   const freshBoard = generateBoardData(cfg.rows, cfg.cols, cfg.mines);
+
+  state.waitingRestartAck = false;
+  el.resultModal.classList.add("hidden");
+  el.restartRequestModal.classList.add("hidden");
 
   await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
     difficulty: targetDifficulty,
@@ -883,6 +906,7 @@ function handleOpponentLeftRoom(leaverName) {
   state.unsubRoom = null;
   state.unsubChat = null;
   state.roomId = null;
+  state.waitingRestartAck = false;
 
   sfx.playLeaveAlert();
   appendSystemMsg(`👋 對手「${leaverName}」已經離開房間，已為您返回線上大廳！`);
@@ -902,6 +926,7 @@ async function cleanupCurrentRoom(notifyOpponent = true) {
   state.unsubChat = null;
   state.roomId = null;
   state.roomStatus = "waiting";
+  state.waitingRestartAck = false;
 
   if (db && currentRoomId && notifyOpponent) {
     try {
@@ -981,6 +1006,10 @@ function renderAll() {
       el.turnBanner.textContent = "🏠 請從上方大廳點選房間加入，或按「建立房間」";
     } else if (state.p2Info.avatar === "⏳") {
       el.turnBanner.textContent = "⏳ 房間已開啟！等待對手從大廳加入...";
+    } else if (state.waitingRestartAck) {
+      el.turnBanner.textContent = "⏳ 已送出重新開局請求，等待對手同意中...";
+    } else if (state.gameOver) {
+      el.turnBanner.textContent = "🏆 本局已結束！點擊下方「🔄 重新一局」可邀請再戰";
     } else {
       el.turnBanner.textContent =
         state.turn === state.myRole
@@ -1209,6 +1238,7 @@ document.getElementById("btn-confirm-leave-notice").addEventListener("click", ()
 // 同意 / 婉拒對手的重新開局請求
 document.getElementById("btn-accept-restart").addEventListener("click", async () => {
   el.restartRequestModal.classList.add("hidden");
+  el.resultModal.classList.add("hidden");
   if (!db || !state.roomId) return;
   const snap = await db.collection("msn_minesweeper_rooms").doc(state.roomId).get();
   const reqDiff = snap.data()?.restartRequest?.difficulty || state.difficulty;
@@ -1221,11 +1251,12 @@ document.getElementById("btn-reject-restart").addEventListener("click", async ()
   await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
     restartRequest: null
   });
-  await sendOnlineChatMessage(`❌ ${state.user.name} 婉拒了重新開局請求，繼續目前對戰！`, true);
+  await sendOnlineChatMessage(`❌ ${state.user.name} 婉拒了重新開局請求！`, true);
 });
 
-// 點擊「重新一局」或笑臉
+// 點擊「重新一局」、笑臉或結算彈窗的「請求再戰一局」
 const restartHandler = () => {
+  el.resultModal.classList.add("hidden");
   if (state.mode === "online" && state.roomId) {
     requestOnlineRestart(state.difficulty);
   } else {
