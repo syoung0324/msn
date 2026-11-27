@@ -174,7 +174,7 @@ const sfx = new ArcadeSoundEngine();
 });
 
 // ==========================================
-// 3. 可愛暱稱隨機產生器與遊戲全域狀態
+// 3. 可愛暱稱隨機產生器、連線識別與遊戲全域狀態
 // ==========================================
 const CUTE_ADJECTIVES = [
   "元氣", "閃電", "草莓", "奶蓋", "星光", "棉花糖",
@@ -193,6 +193,23 @@ function generateCuteNickname() {
   return `${adj}${ani}`;
 }
 
+// 取得或建立同分頁的連線識別碼（用於重整 / 重連時自動清除舊殘留紀錄）
+function getTabSessionId() {
+  try {
+    let sid = sessionStorage.getItem("msn_ms_session_id");
+    if (!sid) {
+      sid = "s_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now();
+      sessionStorage.setItem("msn_ms_session_id", sid);
+    }
+    return sid;
+  } catch (e) {
+    return "s_" + Math.random().toString(36).substring(2, 10);
+  }
+}
+
+const HEARTBEAT_INTERVAL_MS = 8000; // 每 8 秒發送一次在線心跳
+const OFFLINE_TIMEOUT_MS = 22000;   // 超過 22 秒無回應判定為斷線並自動踢除
+
 const DIFFICULTIES = {
   easy: { label: "🌱 快樂入門 (8×8)", rows: 8, cols: 8, mines: 15 },
   medium: { label: "🌼 活力進階 (12×12)", rows: 12, cols: 12, mines: 29 },
@@ -202,10 +219,12 @@ const DIFFICULTIES = {
 const state = {
   user: {
     uid: "u_" + Math.random().toString(36).substring(2, 10),
+    sessionId: getTabSessionId(),
     name: "元氣小蜜蜂",
     avatar: "🐶"
   },
-  mode: "online", // 預設為線上大廳
+  hasEnteredLobby: false,
+  mode: "online",
   difficulty: "medium",
   rows: 12,
   cols: 12,
@@ -219,6 +238,7 @@ const state = {
   aiTimer: null,
   turnToastTimer: null,
   heartbeatTimer: null,
+  sweepTimer: null,
 
   roomId: null,
   myRole: 1,
@@ -232,7 +252,8 @@ const state = {
   unsubChat: null,
   lastNudgeTs: 0,
   lastRestartReqId: "",
-  latestWaitingRooms: [],
+  latestLobbyUsersRaw: [],
+  latestWaitingRoomsRaw: [],
   p1Info: { name: "玩家 1", avatar: "🐶" },
   p2Info: { name: "等待加入...", avatar: "⏳" }
 };
@@ -352,7 +373,7 @@ window.addEventListener("resize", updateResponsiveCellSize);
 window.addEventListener("orientationchange", () => setTimeout(updateResponsiveCellSize, 150));
 
 // ==========================================
-// 7. 登入與線上大廳（在線人員 + 等待房間 + 公開大廳聊天室）
+// 7. 登入、心跳偵測、斷線/重連自動踢除機制
 // ==========================================
 document.querySelectorAll(".avatar-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -365,16 +386,162 @@ document.querySelectorAll(".avatar-btn").forEach((btn) => {
   });
 });
 
-async function updateLobbyPresence(statusText = "大廳待機中") {
+// 清理同分頁重整或重新連線前的舊幽靈帳號與房間
+async function cleanupPreviousReconnectedSession() {
   if (!db) return;
+  try {
+    const prevUid = sessionStorage.getItem("msn_ms_prev_uid");
+    const prevRoomId = sessionStorage.getItem("msn_ms_prev_room");
+
+    if (prevUid && prevUid !== state.user.uid) {
+      await db.collection("msn_minesweeper_lobby_users").doc(prevUid).delete().catch(() => {});
+    }
+    if (prevRoomId) {
+      const roomRef = db.collection("msn_minesweeper_rooms").doc(prevRoomId);
+      const snap = await roomRef.get().catch(() => null);
+      if (snap && snap.exists) {
+        const rData = snap.data();
+        if (rData.status === "waiting") {
+          await roomRef.delete().catch(() => {});
+        } else if (rData.status === "playing") {
+          await roomRef.update({
+            status: "closed",
+            leftBy: rData.p1?.uid === prevUid ? rData.p1?.name : rData.p2?.name || "對手"
+          }).catch(() => {});
+        }
+      }
+      sessionStorage.removeItem("msn_ms_prev_room");
+    }
+
+    // 額外掃描同 sessionId 的舊紀錄並一併踢除
+    const sameSessionSnap = await db
+      .collection("msn_minesweeper_lobby_users")
+      .where("sessionId", "==", state.user.sessionId)
+      .get();
+    sameSessionSnap.forEach((doc) => {
+      if (doc.id !== state.user.uid) {
+        doc.ref.delete().catch(() => {});
+        kickStaleRoomsByHostUid(doc.id);
+      }
+    });
+
+    sessionStorage.setItem("msn_ms_prev_uid", state.user.uid);
+  } catch (e) {}
+}
+
+// 踢除指定斷線房主的等待中房間
+async function kickStaleRoomsByHostUid(hostUid) {
+  if (!db || !hostUid) return;
+  try {
+    const roomsSnap = await db
+      .collection("msn_minesweeper_rooms")
+      .where("status", "==", "waiting")
+      .get();
+    roomsSnap.forEach((doc) => {
+      const data = doc.data();
+      if (data.p1 && data.p1.uid === hostUid) {
+        doc.ref.delete().catch(() => {});
+      }
+    });
+  } catch (e) {}
+}
+
+// 巡檢大廳在線人員與等待房間：自動踢除超時斷線或重連重複的紀錄
+async function sweepStaleLobbyEntities() {
+  const now = Date.now();
+  const validUsers = [];
+  const activeUids = new Set([state.user.uid]);
+
+  // 1. 檢查所有大廳在線人員是否超時或重複 sessionId
+  const seenSessions = new Map();
+  if (state.hasEnteredLobby) {
+    seenSessions.set(state.user.sessionId, { uid: state.user.uid, lastSeen: now });
+  }
+
+  for (const u of state.latestLobbyUsersRaw) {
+    if (!u || !u.uid) continue;
+    if (u.uid === state.user.uid) continue;
+
+    const isExpired = now - (u.lastSeen || 0) > OFFLINE_TIMEOUT_MS;
+    const isDuplicateSession =
+      u.sessionId &&
+      seenSessions.has(u.sessionId) &&
+      seenSessions.get(u.sessionId).uid !== u.uid;
+
+    if (isExpired || isDuplicateSession) {
+      // 自動踢除斷線或重連的幽靈人員與其等待房間
+      if (db) {
+        db.collection("msn_minesweeper_lobby_users").doc(u.uid).delete().catch(() => {});
+        kickStaleRoomsByHostUid(u.uid);
+      }
+    } else {
+      if (u.sessionId) {
+        seenSessions.set(u.sessionId, { uid: u.uid, lastSeen: u.lastSeen || now });
+      }
+      validUsers.push(u);
+      activeUids.add(u.uid);
+    }
+  }
+
+  // 2. 檢查所有等待中的房間：若房主已斷線或超過超時時間未更新心跳，自動移除該房間
+  const validRooms = [];
+  for (const room of state.latestWaitingRoomsRaw) {
+    if (!room || !room.roomId) continue;
+    const hostUid = room.p1?.uid;
+    if (hostUid === state.user.uid) continue;
+
+    const hostLastSeen = room.hostLastSeen || 0;
+    const isRoomExpired = hostLastSeen > 0 && now - hostLastSeen > OFFLINE_TIMEOUT_MS;
+    const isHostOffline = hostUid && !activeUids.has(hostUid) && now - hostLastSeen > OFFLINE_TIMEOUT_MS;
+
+    if (isRoomExpired || isHostOffline) {
+      if (db) {
+        db.collection("msn_minesweeper_rooms").doc(room.roomId).delete().catch(() => {});
+      }
+    } else {
+      validRooms.push(room);
+    }
+  }
+
+  // 3. 組合並即時更新大廳畫面
+  const selfEntry = {
+    uid: state.user.uid,
+    name: state.user.name,
+    avatar: state.user.avatar,
+    statusText: state.roomId ? `開房等待中 (#${state.roomId})` : "大廳待機中"
+  };
+
+  renderOnlinePlayersList([selfEntry, ...validUsers]);
+
+  el.waitingRoomsCount.textContent = `${validRooms.length} 間等待中`;
+  if (validRooms.length > 0) {
+    el.lobbyCountBadge.textContent = validRooms.length;
+    el.lobbyCountBadge.classList.remove("hidden");
+  } else {
+    el.lobbyCountBadge.classList.add("hidden");
+  }
+  renderWaitingRoomsList(validRooms);
+}
+
+async function updateLobbyPresence(statusText = "大廳待機中") {
+  if (!db || !state.hasEnteredLobby) return;
+  const now = Date.now();
   try {
     await db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).set({
       uid: state.user.uid,
+      sessionId: state.user.sessionId,
       name: state.user.name,
       avatar: state.user.avatar,
       statusText,
-      lastSeen: Date.now()
+      lastSeen: now
     });
+
+    // 若目前正擔任房主等待對手，同步更新房間的 hostLastSeen 心跳時間
+    if (state.roomId && state.myRole === 1 && state.roomStatus === "waiting") {
+      await db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+        hostLastSeen: now
+      }).catch(() => {});
+    }
   } catch (e) {}
 }
 
@@ -424,9 +591,10 @@ function listenToLobbyChat() {
     );
 }
 
-function enterLobbyHandler() {
+async function enterLobbyHandler() {
   const nick = el.nicknameInput.value.trim();
   state.user.name = nick || generateCuteNickname();
+  state.hasEnteredLobby = true;
   el.userBadge.textContent = `${state.user.avatar} ${state.user.name}`;
 
   el.loginModal.classList.add("hidden");
@@ -437,11 +605,15 @@ function enterLobbyHandler() {
     sfx.playIcqUhOh();
   } catch (e) {}
 
+  // 先清除同分頁重連前的舊殘留人員與房間
+  await cleanupPreviousReconnectedSession();
+
   // 登入後預設進入「線上大廳」並啟動公開聊天室
   switchGameMode("online", true);
 
   try {
-    updateLobbyPresence("大廳待機中");
+    await updateLobbyPresence("大廳待機中");
+
     clearInterval(state.heartbeatTimer);
     state.heartbeatTimer = setInterval(() => {
       if (state.mode === "online" && !state.roomId) {
@@ -449,7 +621,12 @@ function enterLobbyHandler() {
       } else if (state.mode === "online" && state.roomId && state.roomStatus === "waiting") {
         updateLobbyPresence(`開房等待中 (#${state.roomId})`);
       }
-    }, 20000);
+    }, HEARTBEAT_INTERVAL_MS);
+
+    clearInterval(state.sweepTimer);
+    state.sweepTimer = setInterval(() => {
+      sweepStaleLobbyEntities();
+    }, 5000);
 
     listenToLobbyUsers();
     listenToWaitingRooms();
@@ -466,6 +643,18 @@ el.nicknameInput.addEventListener("keydown", (e) => {
   }
 });
 
+// 分頁切回前景時立即發送心跳與掃描離線人員
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.hasEnteredLobby && state.mode === "online") {
+    if (!state.roomId) {
+      updateLobbyPresence("大廳待機中");
+    } else if (state.roomStatus === "waiting") {
+      updateLobbyPresence(`開房等待中 (#${state.roomId})`);
+    }
+    sweepStaleLobbyEntities();
+  }
+});
+
 function listenToLobbyUsers() {
   if (!db) return;
   if (state.unsubLobbyUsers) state.unsubLobbyUsers();
@@ -474,25 +663,12 @@ function listenToLobbyUsers() {
     .collection("msn_minesweeper_lobby_users")
     .onSnapshot(
       (snapshot) => {
-        const now = Date.now();
-        const activeUsers = [];
+        const list = [];
         snapshot.forEach((doc) => {
-          const u = doc.data();
-          if (u && now - (u.lastSeen || 0) < 65000) {
-            activeUsers.push(u);
-          }
+          list.push(doc.data());
         });
-
-        const others = activeUsers.filter((u) => u.uid !== state.user.uid);
-        const selfEntry = {
-          uid: state.user.uid,
-          name: state.user.name,
-          avatar: state.user.avatar,
-          statusText: state.roomId ? `開房等待中 (#${state.roomId})` : "大廳待機中"
-        };
-        const orderedList = [selfEntry, ...others];
-
-        renderOnlinePlayersList(orderedList);
+        state.latestLobbyUsersRaw = list;
+        sweepStaleLobbyEntities();
       },
       (err) => {
         console.warn("在線人員監聽提示：", err);
@@ -533,23 +709,10 @@ function listenToWaitingRooms() {
       (snapshot) => {
         const rooms = [];
         snapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.p1 && data.p1.uid !== state.user.uid) {
-            rooms.push(data);
-          }
+          rooms.push(doc.data());
         });
-
-        state.latestWaitingRooms = rooms;
-        el.waitingRoomsCount.textContent = `${rooms.length} 間等待中`;
-
-        if (rooms.length > 0) {
-          el.lobbyCountBadge.textContent = rooms.length;
-          el.lobbyCountBadge.classList.remove("hidden");
-        } else {
-          el.lobbyCountBadge.classList.add("hidden");
-        }
-
-        renderWaitingRoomsList(rooms);
+        state.latestWaitingRoomsRaw = rooms;
+        sweepStaleLobbyEntities();
       },
       (err) => {
         console.warn("Firestore 監聽提示：", err);
@@ -864,6 +1027,7 @@ async function createOnlineRoom() {
   const cfg = DIFFICULTIES[state.difficulty];
   const roomId = generateRoomCode();
   const initialBoard = generateBoardData(cfg.rows, cfg.cols, cfg.mines);
+  const now = Date.now();
 
   const roomData = {
     roomId,
@@ -877,6 +1041,7 @@ async function createOnlineRoom() {
     combo: 0,
     status: "waiting",
     leftBy: "",
+    hostLastSeen: now,
     p1: { uid: state.user.uid, name: state.user.name, avatar: state.user.avatar },
     p2: null,
     restartRequest: null,
@@ -891,6 +1056,10 @@ async function createOnlineRoom() {
     state.myRole = 1;
     state.roomStatus = "waiting";
     state.waitingRestartAck = false;
+    try {
+      sessionStorage.setItem("msn_ms_prev_room", roomId);
+    } catch (e) {}
+
     await updateLobbyPresence(`開房等待中 (#${roomId})`);
     enterOnlineRoomUI(roomId);
     listenToRoom(roomId);
@@ -912,6 +1081,13 @@ async function joinOnlineRoomById(roomId) {
     }
 
     const data = snap.data();
+    const now = Date.now();
+    if (data.hostLastSeen && now - data.hostLastSeen > OFFLINE_TIMEOUT_MS) {
+      await docRef.delete().catch(() => {});
+      appendSystemMsg("⚠️ 該房主已離線，系統已自動關閉該房間！");
+      return;
+    }
+
     if (data.status !== "waiting" || (data.p2 && data.p2.uid !== state.user.uid)) {
       appendSystemMsg("⚠️ 慢了一步，這個房間已經有其他玩家加入囉！");
       return;
@@ -922,6 +1098,9 @@ async function joinOnlineRoomById(roomId) {
     state.myRole = 2;
     state.roomStatus = "playing";
     state.waitingRestartAck = false;
+    try {
+      sessionStorage.setItem("msn_ms_prev_room", roomId);
+    } catch (e) {}
 
     await docRef.update({
       p2: { uid: state.user.uid, name: state.user.name, avatar: state.user.avatar },
@@ -953,6 +1132,10 @@ function enterOnlineRoomUI(roomId) {
 }
 
 function returnToLobbyUI() {
+  try {
+    sessionStorage.removeItem("msn_ms_prev_room");
+  } catch (e) {}
+
   el.roomLobbyControls.classList.remove("hidden");
   el.roomActiveBar.classList.add("hidden");
   el.resultModal.classList.add("hidden");
@@ -1157,6 +1340,8 @@ function handleOpponentLeftRoom(leaverName) {
 
 async function cleanupCurrentRoom(notifyOpponent = true) {
   const currentRoomId = state.roomId;
+  const wasWaitingOnly = state.roomStatus === "waiting" && state.p2Info.avatar === "⏳";
+
   if (state.unsubRoom) state.unsubRoom();
   if (state.unsubChat) state.unsubChat();
   state.unsubRoom = null;
@@ -1165,28 +1350,44 @@ async function cleanupCurrentRoom(notifyOpponent = true) {
   state.roomStatus = "waiting";
   state.waitingRestartAck = false;
 
+  try {
+    sessionStorage.removeItem("msn_ms_prev_room");
+  } catch (e) {}
+
   if (db && currentRoomId && notifyOpponent) {
     try {
-      await db.collection("msn_minesweeper_rooms").doc(currentRoomId).update({
-        status: "closed",
-        leftBy: state.user.name,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      const roomRef = db.collection("msn_minesweeper_rooms").doc(currentRoomId);
+      if (wasWaitingOnly) {
+        await roomRef.delete();
+      } else {
+        await roomRef.update({
+          status: "closed",
+          leftBy: state.user.name,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     } catch (e) {}
   }
 }
 
-window.addEventListener("beforeunload", () => {
-  if (db) {
-    db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).delete();
-    if (state.roomId) {
-      db.collection("msn_minesweeper_rooms").doc(state.roomId).update({
+function handleUnloadCleanup() {
+  if (!db) return;
+  db.collection("msn_minesweeper_lobby_users").doc(state.user.uid).delete().catch(() => {});
+  if (state.roomId) {
+    const roomRef = db.collection("msn_minesweeper_rooms").doc(state.roomId);
+    if (state.roomStatus === "waiting" && state.p2Info.avatar === "⏳") {
+      roomRef.delete().catch(() => {});
+    } else {
+      roomRef.update({
         status: "closed",
         leftBy: state.user.name
-      });
+      }).catch(() => {});
     }
   }
-});
+}
+
+window.addEventListener("beforeunload", handleUnloadCleanup);
+window.addEventListener("pagehide", handleUnloadCleanup);
 
 async function submitOnlineMove(idx) {
   const boardCopy = state.board.map((c) => ({ ...c }));
@@ -1344,14 +1545,12 @@ async function sendOnlineChatMessage(text, isSystem = false) {
 
     try {
       if (state.roomId) {
-        // 在對戰房間內：傳送到該房間專屬聊天室
         await db
           .collection("msn_minesweeper_rooms")
           .doc(state.roomId)
           .collection("messages")
           .add(payload);
       } else {
-        // 在線上對戰大廳：公開廣播給所有大廳在線人員
         await db.collection("msn_minesweeper_lobby_messages").add(payload);
       }
     } catch (err) {
